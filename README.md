@@ -19,10 +19,13 @@ backend/
 └── README.md  (file này)
 ```
 
+## Database
+
+Backend dùng **MySQL** (XAMPP). Trong phpMyAdmin tạo database `webbandienthoai` (hoặc sửa `spring.datasource.url` trong `backend_springboot/webdienthoai/webdienthoai/src/main/resources/application.properties`). Mặc định: user `root`, không mật khẩu, port 3306.
+
 ## Chạy backend
 
-- **Maven:** `mvn spring-boot:run` (trong thư mục `backend/`)
-- **Gradle:** `./gradlew bootRun`
+- **Spring Boot:** vào thư mục `backend_springboot/webdienthoai/webdienthoai/` chạy `mvn spring-boot:run`.
 - Đảm bảo CORS cho phép origin frontend (ví dụ `http://localhost:3000`, `http://localhost:3001`).
 
 ## API (đã dùng ở frontend)
