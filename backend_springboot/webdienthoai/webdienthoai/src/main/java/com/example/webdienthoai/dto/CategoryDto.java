@@ -13,14 +13,14 @@ import lombok.NoArgsConstructor;
 public class CategoryDto {
     private Long id;
     private String name;
-    private String slug;
+    private String description;
 
     public static CategoryDto fromEntity(Category c) {
         if (c == null) return null;
         return CategoryDto.builder()
                 .id(c.getId())
                 .name(c.getName())
-                .slug(c.getSlug())
+                .description(c.getDescription())
                 .build();
     }
 }

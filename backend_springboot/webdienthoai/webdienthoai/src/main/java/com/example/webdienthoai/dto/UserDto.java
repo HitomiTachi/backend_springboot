@@ -17,11 +17,12 @@ public class UserDto {
     private Long id;
     private String name;
     private String email;
+    private String role;
     private String phone;
     private String gender;
     private LocalDate dateOfBirth;
-    private String defaultAddress;
     private Instant passwordChangedAt;
+    private Instant createdAt;
 
     public static UserDto fromEntity(User u) {
         if (u == null) return null;
@@ -29,11 +30,12 @@ public class UserDto {
                 .id(u.getId())
                 .name(u.getName())
                 .email(u.getEmail())
+                .role(u.getRole())
                 .phone(u.getPhone())
                 .gender(u.getGender())
                 .dateOfBirth(u.getDateOfBirth())
-                .defaultAddress(u.getDefaultAddress())
                 .passwordChangedAt(u.getPasswordChangedAt())
+                .createdAt(u.getCreatedAt())
                 .build();
     }
 }

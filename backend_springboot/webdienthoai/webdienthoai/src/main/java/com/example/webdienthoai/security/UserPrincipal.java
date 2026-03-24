@@ -8,4 +8,5 @@ import lombok.Getter;
 public class UserPrincipal {
     private final Long userId;
     private final String email;
+    private final String role;
 }

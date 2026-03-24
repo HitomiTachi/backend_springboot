@@ -18,4 +18,19 @@ public class CreateOrderRequest {
     @NotNull
     @DecimalMin("0")
     private BigDecimal totalPrice;
+
+    private Long shippingAddressId;
+
+    @DecimalMin("0")
+    private BigDecimal subtotal;
+
+    @DecimalMin("0")
+    private BigDecimal discountAmount;
+
+    @DecimalMin("0")
+    private BigDecimal shippingCost;
+
+    private String paymentMethod;
+
+    private String notes;
 }

@@ -10,12 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StreamUtils;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -33,61 +30,60 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // Tài khoản mẫu để đăng nhập (chỉ tạo khi chưa có user nào)
-        if (userRepository.count() == 0) {
+                // Danh sách email luôn được cấp role admin trong môi trường dev.
+                List<String> adminEmails = List.of("admin@techhome.com", "admin@gmail.com");
+                for (String adminEmail : adminEmails) {
+                    userRepository.findByEmail(adminEmail).ifPresent(u -> {
+                        u.setRole("admin");
+                        userRepository.save(u);
+                    });
+                }
+                // Tạo tài khoản admin mặc định nếu chưa có.
+                if (!userRepository.existsByEmail("admin@techhome.com")) {
+                    userRepository.save(User.builder()
+                            .name("Quản trị viên")
+                            .email("admin@techhome.com")
+                            .password(passwordEncoder.encode("admin123456"))
+                            .role("admin")
+                            .build());
+                }
+
+                // Tài khoản customer mẫu để test luồng người dùng.
+                if (!userRepository.existsByEmail("user@example.com")) {
             userRepository.save(User.builder()
                     .name("Người dùng mẫu")
                     .email("user@example.com")
                     .password(passwordEncoder.encode("123456"))
+                                        .role("customer")
                     .build());
         }
 
         if (categoryRepository.count() > 0) return;
 
-        Category phone = categoryRepository.save(Category.builder().name("Điện thoại").slug("dien-thoai").build());
-        Category laptop = categoryRepository.save(Category.builder().name("Laptop").slug("laptop").build());
-        Category tablet = categoryRepository.save(Category.builder().name("Tablet").slug("tablet").build());
-
-        String iphone17ProMaxSpecs = loadSpecsFromResource("data/iphone-17-pro-max-specs.json");
-        String iphone17ProSpecs = loadSpecsFromResource("data/iphone-17-pro-specs.json");
-        String iphone17Specs = loadSpecsFromResource("data/iphone-17-specs.json");
-        String iphone17ESpecs = loadSpecsFromResource("data/iphone-17-e-specs.json");
-        String iphoneAirSpecs = loadSpecsFromResource("data/iphone-air-specs.json");
+        Category phone = categoryRepository.save(Category.builder().name("Điện thoại").build());
+        Category laptop = categoryRepository.save(Category.builder().name("Laptop").build());
+        Category tablet = categoryRepository.save(Category.builder().name("Tablet").build());
 
         List<Product> products = List.of(
-                Product.builder().name("iPhone 15").slug("iphone-15").description("Apple iPhone 15").image("/images/iphone15.jpg")
+                Product.builder().name("iPhone 15").description("Apple iPhone 15").image("/images/iphone15.jpg")
                         .price(new BigDecimal("24990000")).category(phone).stock(50).featured(true).build(),
-                Product.builder().name("Samsung Galaxy S24").slug("samsung-galaxy-s24").description("Samsung Galaxy S24")
+                Product.builder().name("Samsung Galaxy S24").description("Samsung Galaxy S24")
                         .image("/images/s24.jpg").price(new BigDecimal("21990000")).category(phone).stock(30).featured(true).build(),
-                Product.builder().name("iPhone 17 e").slug("iphone-17-e").description("Apple iPhone 17 e - Chip A19, màn hình 6.1\" Super Retina XDR, camera 48MP, 256GB")
-                        .image("/images/iphone17e.jpg").price(new BigDecimal("25990000")).category(phone).stock(35).featured(true)
-                        .specifications(iphone17ESpecs).build(),
-                Product.builder().name("iPhone 17").slug("iphone-17").description("Apple iPhone 17 - Chip A19, màn hình 6.3\" Super Retina XDR OLED, camera 48MP Fusion Main, 256GB")
-                        .image("/images/iphone17.jpg").price(new BigDecimal("29990000")).category(phone).stock(30).featured(true)
-                        .specifications(iphone17Specs).build(),
-                Product.builder().name("iPhone 17 Pro").slug("iphone-17-pro").description("Apple iPhone 17 Pro - Chip A19 Pro, màn hình 6.3\" Super Retina XDR, camera 48MP, 256GB")
-                        .image("/images/iphone17pro.jpg").price(new BigDecimal("36990000")).category(phone).stock(25).featured(true)
-                        .specifications(iphone17ProSpecs).build(),
-                Product.builder().name("iPhone 17 Pro Max").slug("iphone-17-pro-max").description("Apple iPhone 17 Pro Max - Chip A19 Pro, màn hình 6.9\" Super Retina XDR, camera 48MP")
-                        .image("/images/iphone17promax.jpg").price(new BigDecimal("42990000")).category(phone).stock(20).featured(true)
-                        .specifications(iphone17ProMaxSpecs).build(),
-                Product.builder().name("iPhone Air").slug("iphone-air").description("Apple iPhone Air - Chip A19 Pro, màn hình 6.5\" Super Retina XDR, khung Titanium, 5.6mm, 256GB")
-                        .image("/images/iphoneair.jpg").price(new BigDecimal("32990000")).category(phone).stock(22).featured(true)
-                        .specifications(iphoneAirSpecs).build(),
-                Product.builder().name("MacBook Pro M3").slug("macbook-pro-m3").description("Apple MacBook Pro M3")
+                Product.builder().name("iPhone 17 e").description("Apple iPhone 17 e - Chip A19, màn hình 6.1 inch, camera 48MP")
+                        .image("/images/iphone17e.jpg").price(new BigDecimal("25990000")).category(phone).stock(35).featured(true).build(),
+                Product.builder().name("iPhone 17").description("Apple iPhone 17 - Chip A19, màn hình 6.3 inch, camera 48MP")
+                        .image("/images/iphone17.jpg").price(new BigDecimal("29990000")).category(phone).stock(30).featured(true).build(),
+                Product.builder().name("iPhone 17 Pro").description("Apple iPhone 17 Pro - Chip A19 Pro, màn hình 6.3 inch, camera 48MP")
+                        .image("/images/iphone17pro.jpg").price(new BigDecimal("36990000")).category(phone).stock(25).featured(true).build(),
+                Product.builder().name("iPhone 17 Pro Max").description("Apple iPhone 17 Pro Max - Chip A19 Pro, màn hình 6.9 inch, camera 48MP")
+                        .image("/images/iphone17promax.jpg").price(new BigDecimal("42990000")).category(phone).stock(20).featured(true).build(),
+                Product.builder().name("iPhone Air").description("Apple iPhone Air - Chip A19 Pro, màn hình 6.5 inch, khung Titanium")
+                        .image("/images/iphoneair.jpg").price(new BigDecimal("32990000")).category(phone).stock(22).featured(true).build(),
+                Product.builder().name("MacBook Pro M3").description("Apple MacBook Pro M3")
                         .image("/images/macbook.jpg").price(new BigDecimal("45990000")).category(laptop).stock(20).featured(true).build(),
-                Product.builder().name("iPad Pro").slug("ipad-pro").description("Apple iPad Pro")
+                Product.builder().name("iPad Pro").description("Apple iPad Pro")
                         .image("/images/ipad.jpg").price(new BigDecimal("27990000")).category(tablet).stock(25).featured(false).build()
         );
         productRepository.saveAll(products);
-    }
-
-    private String loadSpecsFromResource(String path) {
-        try {
-            return StreamUtils.copyToString(
-                    new ClassPathResource(path).getInputStream(), StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            return null;
-        }
     }
 }

@@ -18,8 +18,14 @@ import java.util.stream.Collectors;
 public class OrderDto {
     private Long id;
     private Long userId;
+    private Long shippingAddressId;
     private List<OrderItemDto> items;
+    private BigDecimal subtotal;
+    private BigDecimal discountAmount;
+    private BigDecimal shippingCost;
     private BigDecimal totalPrice;
+    private String paymentMethod;
+    private String notes;
     private String status;
     private Instant createdAt;
 
@@ -32,23 +38,35 @@ public class OrderDto {
         private String productImage;
         private Integer quantity;
         private BigDecimal priceAtOrder;
+        private BigDecimal lineTotal;
+        private String selectedColor;
+        private String selectedStorage;
     }
 
     public static OrderDto fromEntity(Order o) {
         if (o == null) return null;
         List<OrderItemDto> itemDtos = o.getItems().stream()
                 .map(item -> new OrderItemDto(
-                        item.getProduct().getId(),
-                        item.getProduct().getName(),
-                        item.getProduct().getImage(),
+                item.getProduct() != null ? item.getProduct().getId() : null,
+                item.getProductName() != null ? item.getProductName() : (item.getProduct() != null ? item.getProduct().getName() : null),
+                item.getProductImage() != null ? item.getProductImage() : (item.getProduct() != null ? item.getProduct().getImage() : null),
                         item.getQuantity(),
-                        item.getPriceAtOrder()))
+                item.getPriceAtOrder(),
+                item.getLineTotal(),
+                item.getSelectedColor(),
+                item.getSelectedStorage()))
                 .collect(Collectors.toList());
         return OrderDto.builder()
                 .id(o.getId())
                 .userId(o.getUserId())
+            .shippingAddressId(o.getShippingAddressId())
                 .items(itemDtos)
+            .subtotal(o.getSubtotal())
+            .discountAmount(o.getDiscountAmount())
+            .shippingCost(o.getShippingCost())
                 .totalPrice(o.getTotalPrice())
+            .paymentMethod(o.getPaymentMethod())
+            .notes(o.getNotes())
                 .status(o.getStatus())
                 .createdAt(o.getCreatedAt())
                 .build();

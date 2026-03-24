@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Entity
 @Table(name = "products")
@@ -21,8 +22,10 @@ public class Product {
     @Column(nullable = false)
     private String name;
 
-    private String slug;
+    @Column(length = 1000)
     private String description;
+
+    @Column(length = 500)
     private String image;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -38,7 +41,20 @@ public class Product {
     private Integer stock;
     private Boolean featured;
 
-    /** Thông số kỹ thuật (JSON), có thể lấy từ Zyla Labs / Juhe / Apify GSMArena. */
-    @Column(columnDefinition = "TEXT")
-    private String specifications;
+    @Column(updatable = false)
+    private Instant createdAt;
+
+    private Instant updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = Instant.now();
+    }
 }

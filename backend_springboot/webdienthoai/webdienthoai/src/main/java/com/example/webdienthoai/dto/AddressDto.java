@@ -16,11 +16,11 @@ public class AddressDto {
     private String phone;
     private String street;
     private String apartment;
+    private String label;
     private String city;
     private String state;
     private String zipCode;
     private String country;
-    private String label;
     private Boolean isDefault;
 
     public static AddressDto fromEntity(Address a) {
@@ -30,12 +30,12 @@ public class AddressDto {
                 .name(a.getName())
                 .phone(a.getPhone())
                 .street(a.getStreet())
-                .apartment(a.getApartment())
+                .apartment(a.getLine2())
+                .label(a.getLabel())
                 .city(a.getCity())
                 .state(a.getState())
                 .zipCode(a.getZipCode())
                 .country(a.getCountry())
-                .label(a.getLabel())
                 .isDefault(a.getIsDefault())
                 .build();
     }

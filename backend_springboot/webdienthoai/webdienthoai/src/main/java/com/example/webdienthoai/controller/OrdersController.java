@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,8 +42,14 @@ public class OrdersController {
 
         Order order = Order.builder()
                 .user(user)
+            .shippingAddressId(req.getShippingAddressId())
+            .subtotal(Objects.requireNonNullElse(req.getSubtotal(), req.getTotalPrice()))
+            .discountAmount(Objects.requireNonNullElse(req.getDiscountAmount(), java.math.BigDecimal.ZERO))
+            .shippingCost(Objects.requireNonNullElse(req.getShippingCost(), java.math.BigDecimal.ZERO))
                 .totalPrice(req.getTotalPrice())
-                .status("PENDING")
+            .paymentMethod(req.getPaymentMethod())
+            .notes(req.getNotes())
+            .status("pending")
                 .items(new ArrayList<>())
                 .build();
 
@@ -52,8 +59,11 @@ public class OrdersController {
             OrderItem item = OrderItem.builder()
                     .order(order)
                     .product(product)
+                    .productName(product.getName())
+                    .productImage(product.getImage())
                     .quantity(itemReq.getQuantity())
                     .priceAtOrder(itemReq.getPrice())
+                    .lineTotal(itemReq.getPrice().multiply(java.math.BigDecimal.valueOf(itemReq.getQuantity())))
                     .build();
             order.getItems().add(item);
         }

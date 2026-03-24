@@ -8,10 +8,10 @@ public class UpdateAddressRequest {
     private String phone;
     private String street;
     private String apartment;
+    private String label;
     private String city;
     private String state;
     private String zipCode;
     private String country;
-    private String label;
     private Boolean isDefault;
 }

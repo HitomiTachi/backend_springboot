@@ -1,5 +1,6 @@
 package com.example.webdienthoai.security;
 
+import com.example.webdienthoai.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,13 +14,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(
@@ -41,10 +44,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String email = jwtUtil.getEmailFromToken(token);
         Long userId = jwtUtil.getUserIdFromToken(token);
+        String role = userRepository.findByEmail(email)
+            .map(u -> u.getRole() != null ? u.getRole() : jwtUtil.getRoleFromToken(token))
+            .orElseGet(() -> jwtUtil.getRoleFromToken(token));
+        String roleValue = role != null ? role.trim().toUpperCase(Locale.ROOT) : "CUSTOMER";
         var auth = new UsernamePasswordAuthenticationToken(
-                new UserPrincipal(userId, email),
+            new UserPrincipal(userId, email, roleValue.toLowerCase(Locale.ROOT)),
                 null,
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+            List.of(new SimpleGrantedAuthority("ROLE_" + roleValue)));
         SecurityContextHolder.getContext().setAuthentication(auth);
         filterChain.doFilter(request, response);
     }

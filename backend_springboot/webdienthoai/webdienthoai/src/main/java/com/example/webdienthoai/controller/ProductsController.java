@@ -1,15 +1,23 @@
 package com.example.webdienthoai.controller;
 
+import com.example.webdienthoai.dto.CreateProductRequest;
 import com.example.webdienthoai.dto.ProductDto;
+import com.example.webdienthoai.entity.Category;
 import com.example.webdienthoai.entity.Product;
+import com.example.webdienthoai.repository.CategoryRepository;
 import com.example.webdienthoai.repository.ProductRepository;
-import com.example.webdienthoai.service.PhoneSpecsService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -18,9 +26,10 @@ import java.util.stream.Collectors;
 public class ProductsController {
 
     private final ProductRepository productRepository;
-    private final PhoneSpecsService phoneSpecsService;
+    private final CategoryRepository categoryRepository;
 
     @GetMapping
+    @Transactional(readOnly = true)
     public ResponseEntity<List<ProductDto>> getProducts(
             @RequestParam(required = false) Long category,
             @RequestParam(required = false) String q,
@@ -28,7 +37,7 @@ public class ProductsController {
             @RequestParam(defaultValue = "100") int size) {
 
         List<Product> products;
-        if ((category != null || (q != null && !q.isBlank()))) {
+        if (category != null || (q != null && !q.isBlank())) {
             products = productRepository.findByCategoryAndSearch(
                     category, (q != null && !q.isBlank()) ? q.trim() : null,
                     PageRequest.of(page, size)).getContent();
@@ -36,13 +45,11 @@ public class ProductsController {
             products = productRepository.findAll(PageRequest.of(page, size)).getContent();
         }
 
-        List<ProductDto> dtos = products.stream()
-                .map(ProductDto::fromEntity)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(dtos);
+        return ResponseEntity.ok(products.stream().map(ProductDto::fromEntity).collect(Collectors.toList()));
     }
 
     @GetMapping("/{id}")
+    @Transactional(readOnly = true)
     public ResponseEntity<ProductDto> getById(@PathVariable Long id) {
         return productRepository.findById(id)
                 .map(ProductDto::fromEntity)
@@ -51,31 +58,80 @@ public class ProductsController {
     }
 
     @GetMapping("/featured")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<ProductDto>> getFeatured() {
-        List<ProductDto> list = productRepository.findByFeaturedTrue().stream()
-                .map(ProductDto::fromEntity)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(list);
+        return ResponseEntity.ok(
+                productRepository.findByFeaturedTrue().stream()
+                        .map(ProductDto::fromEntity)
+                        .collect(Collectors.toList()));
     }
 
-    /**
-     * Gọi API ngoài (Zyla/Juhe/Apify) lấy thông số theo tên sản phẩm và lưu vào product.
-     * Cần cấu hình app.phone-specs.api-url và app.phone-specs.api-key thì mới có hiệu lực.
-     */
-    @PostMapping("/{id}/fetch-specs")
-    public ResponseEntity<?> fetchSpecs(@PathVariable Long id) {
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public ResponseEntity<?> createProduct(@Valid @RequestBody CreateProductRequest req) {
+        Category category = categoryRepository.findById(req.getCategoryId()).orElse(null);
+        if (category == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Danh mục không tồn tại"));
+        }
+
+        Product product = Product.builder()
+                .name(req.getName())
+                .description(req.getDescription())
+                .image(req.getImage())
+                .price(req.getPrice())
+                .category(category)
+                .categoryId(req.getCategoryId())
+                .stock(req.getStock() != null ? req.getStock() : 0)
+                .featured(req.getFeatured() != null && req.getFeatured())
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+
+        product = productRepository.save(product);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ProductDto.fromEntity(product));
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public ResponseEntity<?> updateProduct(
+            @PathVariable Long id,
+            @RequestBody CreateProductRequest req) {
+        Product product = productRepository.findById(id).orElse(null);
+        if (product == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        if (req.getName() != null) product.setName(req.getName());
+        if (req.getDescription() != null) product.setDescription(req.getDescription());
+        if (req.getImage() != null) product.setImage(req.getImage());
+        if (req.getPrice() != null) product.setPrice(req.getPrice());
+        if (req.getCategoryId() != null) {
+            Category category = categoryRepository.findById(req.getCategoryId()).orElse(null);
+            if (category == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "Danh mục không tồn tại"));
+            }
+            product.setCategory(category);
+            product.setCategoryId(req.getCategoryId());
+        }
+        if (req.getStock() != null) product.setStock(req.getStock());
+        if (req.getFeatured() != null) product.setFeatured(req.getFeatured());
+        product.setUpdatedAt(Instant.now());
+
+        product = productRepository.save(product);
+        return ResponseEntity.ok(ProductDto.fromEntity(product));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deleteProduct(@PathVariable Long id) {
         if (!productRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-        boolean updated = phoneSpecsService.fetchAndSaveSpecs(id);
-        if (!updated) {
-            return ResponseEntity.accepted().body(
-                    java.util.Map.of("message", "Chưa cấu hình API hoặc không tìm thấy dữ liệu. Xem PHONE_SPECS_APIS.md.")
-            );
-        }
-        return productRepository.findById(id)
-                .map(ProductDto::fromEntity)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.ok().build());
+        productRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }

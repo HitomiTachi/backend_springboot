@@ -3,6 +3,7 @@ package com.example.webdienthoai.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -45,6 +46,22 @@ public class ApiExceptionHandler {
                 .body(Map.of(
                         "message", e.getMessage(),
                         "code", "BAD_REQUEST"));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException e) {
+        String root = e.getRootCause() != null ? e.getRootCause().getMessage() : e.getMessage();
+        String msg = "Dữ liệu không hợp lệ hoặc vi phạm ràng buộc.";
+        if (root != null) {
+            if (root.contains("Duplicate entry")) msg = "Dữ liệu đã tồn tại (bị trùng).";
+            else if (root.contains("Data too long")) msg = "Giá trị quá dài cho phép trong database.";
+            else if (root.contains("cannot be null")) msg = "Thiếu trường bắt buộc.";
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of(
+                        "message", msg,
+                        "code", "DATA_INTEGRITY_ERROR",
+                        "detail", root != null ? root : ""));
     }
 
     @ExceptionHandler(Exception.class)
