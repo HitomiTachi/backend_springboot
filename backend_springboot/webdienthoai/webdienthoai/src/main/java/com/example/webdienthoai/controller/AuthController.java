@@ -47,10 +47,11 @@ public class AuthController {
                 .name(name)
                 .email(email)
                 .password(passwordEncoder.encode(req.getPassword()))
+            .role("customer")
                 .passwordChangedAt(Instant.now())
                 .build();
         user = userRepository.save(user);
-        String token = jwtUtil.generateToken(user.getEmail(), user.getId());
+        String token = jwtUtil.generateToken(user.getEmail(), user.getId(), user.getRole());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(AuthResponse.builder()
                         .token(token)
@@ -69,7 +70,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(java.util.Map.of("message", "Email hoặc mật khẩu không đúng"));
         }
-        String token = jwtUtil.generateToken(user.getEmail(), user.getId());
+        String token = jwtUtil.generateToken(user.getEmail(), user.getId(), user.getRole());
         return ResponseEntity.ok(AuthResponse.builder()
                 .token(token)
                 .user(UserDto.fromEntity(user))

@@ -12,5 +12,4 @@ public class UpdateProfileRequest {
     private String gender;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate dateOfBirth;
-    private String defaultAddress;
 }

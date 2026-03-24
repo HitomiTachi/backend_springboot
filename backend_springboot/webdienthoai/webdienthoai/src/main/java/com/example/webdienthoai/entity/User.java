@@ -32,14 +32,36 @@ public class User {
 
     private String phone;
     private String gender;
-    private LocalDate dateOfBirth;
-    @Column(length = 500)
-    private String defaultAddress;
 
-    /** Thời điểm đổi mật khẩu lần cuối (null = chưa đổi sau khi đăng ký). */
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private String role = "customer";
+
+    @Column(name = "password_changed_at")
     private Instant passwordChangedAt;
+
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at")
+    private Instant updatedAt;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Order> orders = new ArrayList<>();
+
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = Instant.now();
+    }
 }

@@ -53,9 +53,6 @@ public class ProfileController {
         if (req.getDateOfBirth() != null) {
             user.setDateOfBirth(req.getDateOfBirth());
         }
-        if (req.getDefaultAddress() != null) {
-            user.setDefaultAddress(req.getDefaultAddress().trim().isEmpty() ? null : req.getDefaultAddress().trim());
-        }
         user = userRepository.save(user);
         return ResponseEntity.ok(UserDto.fromEntity(user));
     }
