@@ -36,6 +36,9 @@ public class User {
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
+    @Column(name = "avatar_url", length = 1000)
+    private String avatarUrl;
+
     @Column(nullable = false)
     @Builder.Default
     private String role = "customer";
