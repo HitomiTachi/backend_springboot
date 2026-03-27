@@ -53,6 +53,10 @@ public class ProfileController {
         if (req.getDateOfBirth() != null) {
             user.setDateOfBirth(req.getDateOfBirth());
         }
+        if (req.getAvatarUrl() != null) {
+            String v = req.getAvatarUrl().trim();
+            user.setAvatarUrl(v.isEmpty() ? null : v);
+        }
         user = userRepository.save(user);
         return ResponseEntity.ok(UserDto.fromEntity(user));
     }

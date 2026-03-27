@@ -35,8 +35,15 @@ public class OrderItem {
 
     private Integer quantity;
 
-    @Column(name = "product_price", nullable = false, precision = 12, scale = 2)
+    @Column(name = "price_at_order", nullable = false, precision = 12, scale = 2)
     private BigDecimal priceAtOrder;
+
+    /**
+     * Legacy column in some DBs: product_price (NOT NULL).
+     * Keep it in sync with priceAtOrder to avoid integrity errors.
+     */
+    @Column(name = "product_price", nullable = false, precision = 12, scale = 2)
+    private BigDecimal productPrice;
 
     @Column(name = "line_total", nullable = false, precision = 12, scale = 2)
     private BigDecimal lineTotal;
@@ -59,6 +66,9 @@ public class OrderItem {
             if (this.productImage == null) {
                 this.productImage = this.product.getImage();
             }
+        }
+        if (this.productPrice == null) {
+            this.productPrice = this.priceAtOrder != null ? this.priceAtOrder : BigDecimal.ZERO;
         }
         if (this.lineTotal == null) {
             BigDecimal unitPrice = this.priceAtOrder != null ? this.priceAtOrder : BigDecimal.ZERO;

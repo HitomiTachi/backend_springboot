@@ -49,7 +49,15 @@ public class OrdersController {
                 .totalPrice(req.getTotalPrice())
             .paymentMethod(req.getPaymentMethod())
             .notes(req.getNotes())
-            .status("pending")
+            // COD (thanh toán khi nhận hàng) => chưa thanh toán ngay
+            // Card/PayPal => simulate "đã thanh toán" ngay khi đặt hàng
+            .status(
+                    req.getPaymentMethod() == null || req.getPaymentMethod().isBlank()
+                            ? "pending"
+                            : "cash_on_delivery".equalsIgnoreCase(req.getPaymentMethod())
+                                ? "pending"
+                                : "paid"
+            )
                 .items(new ArrayList<>())
                 .build();
 
@@ -70,6 +78,36 @@ public class OrdersController {
 
         order = orderRepository.save(order);
         return ResponseEntity.status(HttpStatus.CREATED).body(OrderDto.fromEntity(order));
+    }
+
+    /**
+     * COD: khách xác nhận đã nhận hàng -> ghi nhận thanh toán.
+     * PATCH /api/orders/{id}/receive
+     */
+    @PatchMapping("/{id}/receive")
+    @Transactional
+    public ResponseEntity<?> receiveOrder(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Vui lòng đăng nhập"));
+        }
+
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null || order.getUser() == null || !order.getUser().getId().equals(principal.getUserId())) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (order.getPaymentMethod() == null || !order.getPaymentMethod().equalsIgnoreCase("cash_on_delivery")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Chỉ áp dụng cho đơn thanh toán khi nhận hàng (COD)"));
+        }
+
+        // Mark as paid when customer confirms received.
+        order.setStatus("paid");
+        order = orderRepository.save(order);
+        return ResponseEntity.ok(OrderDto.fromEntity(order));
     }
 
     @GetMapping

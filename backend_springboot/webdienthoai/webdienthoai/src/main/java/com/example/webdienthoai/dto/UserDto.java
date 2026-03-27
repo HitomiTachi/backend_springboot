@@ -21,6 +21,7 @@ public class UserDto {
     private String phone;
     private String gender;
     private LocalDate dateOfBirth;
+    private String avatarUrl;
     private Instant passwordChangedAt;
     private Instant createdAt;
 
@@ -34,6 +35,7 @@ public class UserDto {
                 .phone(u.getPhone())
                 .gender(u.getGender())
                 .dateOfBirth(u.getDateOfBirth())
+                .avatarUrl(u.getAvatarUrl())
                 .passwordChangedAt(u.getPasswordChangedAt())
                 .createdAt(u.getCreatedAt())
                 .build();

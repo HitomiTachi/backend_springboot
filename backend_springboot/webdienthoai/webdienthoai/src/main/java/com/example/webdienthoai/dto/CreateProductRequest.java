@@ -17,6 +17,9 @@ public class CreateProductRequest {
     @NotBlank(message = "Tên sản phẩm không được để trống")
     private String name;
 
+    @NotBlank(message = "Slug không được để trống")
+    private String slug;
+
     private String description;
 
     private String image;
@@ -30,4 +33,10 @@ public class CreateProductRequest {
     private Integer stock;
 
     private Boolean featured;
+
+    private String colors;      // JSON ["đen", "trắng", ...]
+
+    private String storageOptions;  // JSON [{"capacity": "256GB", "price": 19900000}, ...]
+
+    private String specifications;  // JSON thông số kỹ thuật
 }
