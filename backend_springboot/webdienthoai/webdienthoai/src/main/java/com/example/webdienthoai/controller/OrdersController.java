@@ -6,6 +6,7 @@ import com.example.webdienthoai.repository.OrderRepository;
 import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.repository.UserRepository;
 import com.example.webdienthoai.security.UserPrincipal;
+import com.example.webdienthoai.service.OrderStatusService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -30,6 +31,7 @@ public class OrdersController {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final OrderStatusService orderStatusService;
 
     @PostMapping
     public ResponseEntity<?> createOrder(
@@ -66,6 +68,15 @@ public class OrdersController {
         for (OrderItemRequest itemReq : req.getItems()) {
             Product product = productRepository.findById(itemReq.getProductId())
                     .orElseThrow(() -> new IllegalArgumentException("Product not found: " + itemReq.getProductId()));
+            int currentStock = product.getStock() != null ? product.getStock() : 0;
+            if (itemReq.getQuantity() == null || itemReq.getQuantity() <= 0) {
+                throw new IllegalArgumentException("Số lượng sản phẩm phải lớn hơn 0");
+            }
+            if (currentStock < itemReq.getQuantity()) {
+                throw new IllegalArgumentException("Sản phẩm không đủ tồn kho: " + product.getName());
+            }
+            product.setStock(currentStock - itemReq.getQuantity());
+            productRepository.save(product);
             OrderItem item = OrderItem.builder()
                     .order(order)
                     .product(product)
@@ -78,6 +89,8 @@ public class OrdersController {
             order.getItems().add(item);
         }
 
+        order = orderRepository.save(order);
+        orderStatusService.changeStatus(order, order.getStatus(), "system", "Đơn hàng được tạo");
         order = orderRepository.save(order);
         return ResponseEntity.status(HttpStatus.CREATED).body(OrderDto.fromEntity(order));
     }
@@ -107,7 +120,39 @@ public class OrdersController {
         }
 
         // Mark as paid when customer confirms received.
-        order.setStatus("paid");
+        orderStatusService.changeStatus(order, "paid", "customer:" + principal.getUserId(), "Khách xác nhận nhận hàng COD");
+        order = orderRepository.save(order);
+        return ResponseEntity.ok(OrderDto.fromEntity(order));
+    }
+
+    @PatchMapping("/{id}/cancel")
+    @Transactional
+    public ResponseEntity<?> cancelOrder(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Vui lòng đăng nhập"));
+        }
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null || order.getUser() == null || !order.getUser().getId().equals(principal.getUserId())) {
+            return ResponseEntity.notFound().build();
+        }
+
+        String status = orderStatusService.normalize(order.getStatus());
+        if ("completed".equals(status) || "cancelled".equals(status)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Không thể hủy đơn ở trạng thái hiện tại"));
+        }
+
+        for (OrderItem item : order.getItems()) {
+            Product p = item.getProduct();
+            if (p != null) {
+                int stock = p.getStock() != null ? p.getStock() : 0;
+                p.setStock(stock + (item.getQuantity() != null ? item.getQuantity() : 0));
+                productRepository.save(p);
+            }
+        }
+        orderStatusService.changeStatus(order, "cancelled", "customer:" + principal.getUserId(), "Khách hủy đơn");
         order = orderRepository.save(order);
         return ResponseEntity.ok(OrderDto.fromEntity(order));
     }
