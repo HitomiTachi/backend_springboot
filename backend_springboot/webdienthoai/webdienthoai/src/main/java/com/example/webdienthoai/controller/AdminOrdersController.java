@@ -5,8 +5,12 @@ import com.example.webdienthoai.dto.AdminOrderItemDto;
 import com.example.webdienthoai.dto.UpdateAdminOrderStatusRequest;
 import com.example.webdienthoai.entity.Address;
 import com.example.webdienthoai.entity.Order;
+import com.example.webdienthoai.entity.OrderItem;
+import com.example.webdienthoai.entity.Product;
 import com.example.webdienthoai.repository.AddressRepository;
 import com.example.webdienthoai.repository.OrderRepository;
+import com.example.webdienthoai.repository.ProductRepository;
+import com.example.webdienthoai.service.OrderStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -27,6 +31,8 @@ public class AdminOrdersController {
 
     private final OrderRepository orderRepository;
     private final AddressRepository addressRepository;
+    private final ProductRepository productRepository;
+    private final OrderStatusService orderStatusService;
 
     private String toShippingAddressSummary(Address addr) {
         if (addr == null) return "—";
@@ -116,7 +122,22 @@ public class AdminOrdersController {
             @PathVariable Long id,
             @RequestBody UpdateAdminOrderStatusRequest req) {
         return orderRepository.findById(id).map(o -> {
-            o.setStatus(req.getStatus());
+            String oldStatus = orderStatusService.normalize(o.getStatus());
+            String newStatus = orderStatusService.normalize(req.getStatus());
+            orderStatusService.validateStatus(newStatus);
+
+            if (!"cancelled".equals(oldStatus) && "cancelled".equals(newStatus)) {
+                for (OrderItem item : o.getItems()) {
+                    Product p = item.getProduct();
+                    if (p != null) {
+                        int stock = p.getStock() != null ? p.getStock() : 0;
+                        p.setStock(stock + (item.getQuantity() != null ? item.getQuantity() : 0));
+                        productRepository.save(p);
+                    }
+                }
+            }
+
+            orderStatusService.changeStatus(o, newStatus, "admin", "Admin cập nhật trạng thái đơn");
             Order saved = orderRepository.save(o);
             return ResponseEntity.ok(mapOrder(saved));
         }).orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
