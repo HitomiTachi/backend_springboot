@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -112,11 +114,21 @@ public class OrdersController {
 
     @GetMapping
     @Transactional(readOnly = true)
-    public ResponseEntity<List<OrderDto>> getMyOrders(@AuthenticationPrincipal UserPrincipal principal) {
+    public ResponseEntity<List<OrderDto>> getMyOrders(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "desc") String sortDir) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        List<OrderDto> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(principal.getUserId()).stream()
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        List<OrderDto> orders = orderRepository.searchForUser(
+                        principal.getUserId(),
+                        status != null && !status.isBlank() ? status.trim() : null,
+                        PageRequest.of(page, size, Sort.by(direction, "createdAt")))
+                .getContent().stream()
                 .map(OrderDto::fromEntity)
                 .toList();
         return ResponseEntity.ok(orders);
