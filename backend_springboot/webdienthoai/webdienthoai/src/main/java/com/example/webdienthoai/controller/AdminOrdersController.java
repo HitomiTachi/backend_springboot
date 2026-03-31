@@ -8,14 +8,16 @@ import com.example.webdienthoai.entity.Order;
 import com.example.webdienthoai.repository.AddressRepository;
 import com.example.webdienthoai.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/orders")
@@ -81,10 +83,22 @@ public class AdminOrdersController {
 
     @GetMapping
     @Transactional(readOnly = true)
-    public ResponseEntity<List<AdminOrderDto>> getAllOrders() {
-        List<Order> orders = orderRepository.findAll();
-        orders.sort(Comparator.comparing(Order::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
-        return ResponseEntity.ok(orders.stream().map(this::mapOrder).toList());
+    public ResponseEntity<Map<String, Object>> getAllOrders(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        var orderPage = orderRepository.searchForAdmin(
+                status != null && !status.isBlank() ? status.trim() : null,
+                PageRequest.of(page, size, Sort.by(direction, "createdAt")));
+        List<AdminOrderDto> items = orderPage.getContent().stream().map(this::mapOrder).toList();
+        return ResponseEntity.ok(Map.of(
+                "items", items,
+                "page", orderPage.getNumber(),
+                "size", orderPage.getSize(),
+                "totalElements", orderPage.getTotalElements(),
+                "totalPages", orderPage.getTotalPages()));
     }
 
     @GetMapping("/{id}")
