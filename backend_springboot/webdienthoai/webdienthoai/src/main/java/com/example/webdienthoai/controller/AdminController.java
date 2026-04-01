@@ -14,6 +14,8 @@ import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -168,11 +170,27 @@ public class AdminController {
 
     /** Lấy danh sách tất cả người dùng */
     @GetMapping("/users")
-    public ResponseEntity<List<UserDto>> getAllUsers() {
-        List<UserDto> users = userRepository.findAll().stream()
+    public ResponseEntity<Map<String, Object>> getAllUsers(
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        var usersPage = userRepository.searchForAdmin(
+                role != null && !role.isBlank() ? role.trim() : null,
+                q != null && !q.isBlank() ? q.trim() : null,
+                PageRequest.of(page, size, Sort.by(direction, sortBy)));
+        List<UserDto> users = usersPage.getContent().stream()
                 .map(UserDto::fromEntity)
                 .toList();
-        return ResponseEntity.ok(users);
+        return ResponseEntity.ok(Map.of(
+                "items", users,
+                "page", usersPage.getNumber(),
+                "size", usersPage.getSize(),
+                "totalElements", usersPage.getTotalElements(),
+                "totalPages", usersPage.getTotalPages()));
     }
 
     /** Lấy thông tin một người dùng theo ID */
