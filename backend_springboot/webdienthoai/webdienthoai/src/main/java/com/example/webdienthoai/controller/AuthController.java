@@ -7,6 +7,7 @@ import com.example.webdienthoai.dto.RegisterRequest;
 import com.example.webdienthoai.dto.UserDto;
 import com.example.webdienthoai.entity.User;
 import com.example.webdienthoai.repository.UserRepository;
+import com.example.webdienthoai.security.LoginAttemptService;
 import com.example.webdienthoai.security.JwtUtil;
 import com.example.webdienthoai.security.UserPrincipal;
 import jakarta.validation.Valid;
@@ -31,6 +32,7 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final LoginAttemptService loginAttemptService;
 
     /**
      * Đăng ký tài khoản mới. Email được lưu dạng chữ thường để trùng với login.
@@ -65,11 +67,20 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody AuthRequest req) {
         String email = req.getEmail() != null ? req.getEmail().trim().toLowerCase() : "";
+        if (loginAttemptService.isLocked(email)) {
+            long seconds = loginAttemptService.remainingLockSeconds(email);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(java.util.Map.of(
+                            "message", "Tài khoản tạm thời bị khóa do đăng nhập sai nhiều lần",
+                            "retryAfterSeconds", seconds));
+        }
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null || !passwordEncoder.matches(req.getPassword(), user.getPassword())) {
+            loginAttemptService.onFailure(email);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(java.util.Map.of("message", "Email hoặc mật khẩu không đúng"));
         }
+        loginAttemptService.onSuccess(email);
         String token = jwtUtil.generateToken(user.getEmail(), user.getId(), user.getRole());
         return ResponseEntity.ok(AuthResponse.builder()
                 .token(token)

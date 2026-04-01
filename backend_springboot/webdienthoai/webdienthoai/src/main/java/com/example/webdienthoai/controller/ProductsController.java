@@ -9,6 +9,7 @@ import com.example.webdienthoai.repository.ProductRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,15 +35,20 @@ public class ProductsController {
             @RequestParam(required = false) Long category,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "100") int size) {
+            @RequestParam(defaultValue = "100") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
         List<Product> products;
         if (category != null || (q != null && !q.isBlank())) {
             products = productRepository.findByCategoryAndSearch(
                     category, (q != null && !q.isBlank()) ? q.trim() : null,
-                    PageRequest.of(page, size)).getContent();
+                    pageable).getContent();
         } else {
-            products = productRepository.findAll(PageRequest.of(page, size)).getContent();
+            products = productRepository.findAll(pageable).getContent();
         }
 
         return ResponseEntity.ok(products.stream().map(ProductDto::fromEntity).collect(Collectors.toList()));
