@@ -9,6 +9,7 @@ import com.example.webdienthoai.repository.CartRepository;
 import com.example.webdienthoai.repository.ShipmentRepository;
 import com.example.webdienthoai.security.UserPrincipal;
 import com.example.webdienthoai.service.OrderStatusService;
+import com.example.webdienthoai.service.ShippingPricing;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.List;
@@ -49,13 +51,35 @@ public class OrdersController {
         User user = userRepository.findById(principal.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        BigDecimal computedSubtotal = BigDecimal.ZERO;
+        for (OrderItemRequest itemReq : req.getItems()) {
+            if (itemReq.getQuantity() == null || itemReq.getQuantity() <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Số lượng sản phẩm phải lớn hơn 0"));
+            }
+            if (itemReq.getPrice() == null || itemReq.getPrice().compareTo(BigDecimal.ZERO) < 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Giá sản phẩm không hợp lệ"));
+            }
+            computedSubtotal = computedSubtotal.add(
+                    itemReq.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity())));
+        }
+        BigDecimal discount = Objects.requireNonNullElse(req.getDiscountAmount(), BigDecimal.ZERO);
+        if (discount.compareTo(computedSubtotal) > 0) {
+            discount = computedSubtotal;
+        }
+        BigDecimal netMerchandise = computedSubtotal.subtract(discount).max(BigDecimal.ZERO);
+        BigDecimal shippingCost = ShippingPricing.computeForNetMerchandise(netMerchandise);
+        BigDecimal totalPrice = computedSubtotal.subtract(discount).add(shippingCost);
+        if (totalPrice.compareTo(BigDecimal.ZERO) < 0) {
+            totalPrice = BigDecimal.ZERO;
+        }
+
         Order order = Order.builder()
                 .user(user)
             .shippingAddressId(req.getShippingAddressId())
-            .subtotal(Objects.requireNonNullElse(req.getSubtotal(), req.getTotalPrice()))
-            .discountAmount(Objects.requireNonNullElse(req.getDiscountAmount(), java.math.BigDecimal.ZERO))
-            .shippingCost(Objects.requireNonNullElse(req.getShippingCost(), java.math.BigDecimal.ZERO))
-                .totalPrice(req.getTotalPrice())
+            .subtotal(computedSubtotal)
+            .discountAmount(discount)
+            .shippingCost(shippingCost)
+                .totalPrice(totalPrice)
             .paymentMethod(req.getPaymentMethod())
             .notes(req.getNotes())
             // COD (thanh toán khi nhận hàng) => chưa thanh toán ngay
