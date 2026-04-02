@@ -2,6 +2,7 @@ package com.example.webdienthoai.controller;
 
 import com.example.webdienthoai.dto.AdminOrderDto;
 import com.example.webdienthoai.dto.AdminOrderItemDto;
+import com.example.webdienthoai.dto.OrderStatusHistoryDto;
 import com.example.webdienthoai.dto.UpdateAdminOrderStatusRequest;
 import com.example.webdienthoai.entity.Address;
 import com.example.webdienthoai.entity.Order;
@@ -9,6 +10,7 @@ import com.example.webdienthoai.entity.OrderItem;
 import com.example.webdienthoai.entity.Product;
 import com.example.webdienthoai.repository.AddressRepository;
 import com.example.webdienthoai.repository.OrderRepository;
+import com.example.webdienthoai.repository.OrderStatusAuditRepository;
 import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.service.OrderStatusService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,7 @@ public class AdminOrdersController {
     private final OrderRepository orderRepository;
     private final AddressRepository addressRepository;
     private final ProductRepository productRepository;
+    private final OrderStatusAuditRepository orderStatusAuditRepository;
     private final OrderStatusService orderStatusService;
 
     private String toShippingAddressSummary(Address addr) {
@@ -103,6 +106,7 @@ public class AdminOrdersController {
                 "items", items,
                 "page", orderPage.getNumber(),
                 "size", orderPage.getSize(),
+                "total", orderPage.getTotalElements(),
                 "totalElements", orderPage.getTotalElements(),
                 "totalPages", orderPage.getTotalPages()));
     }
@@ -114,6 +118,19 @@ public class AdminOrdersController {
                 .map(this::mapOrder)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    }
+
+    @GetMapping("/{id}/status-history")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getOrderStatusHistory(@PathVariable Long id) {
+        if (!orderRepository.existsById(id)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        List<OrderStatusHistoryDto> items = orderStatusAuditRepository.findByOrderIdOrderByChangedAtDesc(id)
+                .stream()
+                .map(OrderStatusHistoryDto::fromEntity)
+                .toList();
+        return ResponseEntity.ok(Map.of("items", items));
     }
 
     @PatchMapping("/{id}/status")

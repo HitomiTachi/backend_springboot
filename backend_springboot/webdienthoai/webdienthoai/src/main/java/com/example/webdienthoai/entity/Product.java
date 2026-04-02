@@ -22,6 +22,9 @@ public class Product {
     @Column(nullable = false)
     private String name;
 
+    @Column(length = 200, unique = true)
+    private String slug;
+
     @Column(length = 1000)
     private String description;
 
@@ -39,6 +42,15 @@ public class Product {
     private Long categoryId;
 
     private Integer stock;
+    
+    /**
+     * Số lượng đang được reserve (đã giữ chỗ) cho các đơn chưa chốt sold.
+     * Trong phase MVP này, reservedStock chỉ phục vụ module inventory; flow order hiện tại chưa dùng reserve/sold.
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer reservedStock = 0;
+
     private Boolean featured;
 
     @Column(updatable = false)

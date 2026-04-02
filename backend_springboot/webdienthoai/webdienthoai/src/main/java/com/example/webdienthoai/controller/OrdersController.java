@@ -5,6 +5,8 @@ import com.example.webdienthoai.entity.*;
 import com.example.webdienthoai.repository.OrderRepository;
 import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.repository.UserRepository;
+import com.example.webdienthoai.repository.CartRepository;
+import com.example.webdienthoai.repository.ShipmentRepository;
 import com.example.webdienthoai.security.UserPrincipal;
 import com.example.webdienthoai.service.OrderStatusService;
 import jakarta.validation.Valid;
@@ -31,6 +33,8 @@ public class OrdersController {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final CartRepository cartRepository;
+    private final ShipmentRepository shipmentRepository;
     private final OrderStatusService orderStatusService;
 
     @PostMapping
@@ -93,6 +97,15 @@ public class OrdersController {
         order = orderRepository.save(order);
         orderStatusService.changeStatus(order, order.getStatus(), "system", "Đơn hàng được tạo");
         order = orderRepository.save(order);
+
+        // Đồng bộ hành vi checkout: sau khi đặt hàng thành công thì xóa cart server.
+        cartRepository.findByUserId(principal.getUserId()).ifPresent(cart -> {
+            if (cart.getItems() != null && !cart.getItems().isEmpty()) {
+                cart.getItems().clear();
+                cartRepository.save(cart);
+            }
+        });
+
         return ResponseEntity.status(HttpStatus.CREATED).body(OrderDto.fromEntity(order));
     }
 
@@ -197,5 +210,24 @@ public class OrdersController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(OrderDto.fromEntity(order));
+    }
+
+    @GetMapping("/{id}/shipment")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getMyOrderShipment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null || order.getUser() == null || !order.getUser().getId().equals(principal.getUserId())) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        Shipment shipment = shipmentRepository.findByOrderId(id).orElse(null);
+        if (shipment == null) {
+            return ResponseEntity.ok(Map.of("shipment", (Object) null));
+        }
+        return ResponseEntity.ok(ShipmentDto.fromEntity(shipment));
     }
 }

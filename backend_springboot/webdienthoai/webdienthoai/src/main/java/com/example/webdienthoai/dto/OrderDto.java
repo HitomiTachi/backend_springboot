@@ -27,6 +27,7 @@ public class OrderDto {
     private String paymentMethod;
     private String notes;
     private String status;
+    private ShipmentDto shipment;
     private Instant createdAt;
 
     @Data

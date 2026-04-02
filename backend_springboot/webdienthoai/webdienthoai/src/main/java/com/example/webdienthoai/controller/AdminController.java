@@ -6,6 +6,7 @@ import com.example.webdienthoai.dto.CreateProductRequest;
 import com.example.webdienthoai.dto.ProductDto;
 import com.example.webdienthoai.dto.UserDto;
 import com.example.webdienthoai.entity.Category;
+import com.example.webdienthoai.entity.Order;
 import com.example.webdienthoai.entity.Product;
 import com.example.webdienthoai.entity.User;
 import com.example.webdienthoai.repository.CategoryRepository;
@@ -23,8 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -36,6 +41,33 @@ public class AdminController {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final OrderRepository orderRepository;
+
+    private static String slugify(String input) {
+        if (input == null) return "";
+        return java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .trim()
+                .replaceAll("\\s+", "-")
+                .replaceAll("-{2,}", "-");
+    }
+
+    private String buildUniqueCategorySlug(String preferred, Long currentCategoryId) {
+        String base = slugify(preferred);
+        if (base.isBlank()) {
+            base = "category-" + Instant.now().toEpochMilli();
+        }
+        String candidate = base;
+        int seq = 1;
+        while (true) {
+            var existed = categoryRepository.findBySlugIgnoreCase(candidate).orElse(null);
+            if (existed == null || (currentCategoryId != null && existed.getId().equals(currentCategoryId))) {
+                return candidate;
+            }
+            candidate = base + "-" + seq++;
+        }
+    }
 
     // ────── Stats ──────
 
@@ -54,6 +86,59 @@ public class AdminController {
         ));
     }
 
+    /**
+     * GET /api/admin/dashboard/summary
+     * MVP: tính revenue + số lượng đơn theo trạng thái + recent orders.
+     *
+     * Contract goal: FE có thể map tới `revenue`, `ordersByStatus`, `recentOrders`.
+     */
+    @GetMapping("/dashboard/summary")
+    @Transactional(readOnly = true)
+    public ResponseEntity<Map<String, Object>> getDashboardSummary(
+            @RequestParam(defaultValue = "10") int recentLimit) {
+        List<Order> orders = orderRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        BigDecimal revenue = orders.stream()
+                .filter(o -> o.getTotalPrice() != null)
+                .filter(o -> {
+                    String s = o.getStatus() != null ? o.getStatus().trim().toLowerCase() : "pending";
+                    // Simple heuristic:
+                    // - count paid/completed/shipping as revenue
+                    // - subtract refunded orders
+                    return "paid".equals(s) || "shipping".equals(s) || "completed".equals(s) || "returned".equals(s) || "refunded".equals(s);
+                })
+                .map(o -> {
+                    String s = o.getStatus() != null ? o.getStatus().trim().toLowerCase() : "pending";
+                    return "refunded".equals(s) ? o.getTotalPrice().negate() : o.getTotalPrice();
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Map<String, Long> ordersByStatus = orders.stream()
+                .collect(Collectors.groupingBy(
+                        o -> o.getStatus() != null ? o.getStatus().trim().toLowerCase() : "pending",
+                        Collectors.counting()
+                ));
+
+        List<Map<String, Object>> recentOrders = orders.stream()
+                .limit(Math.max(0, recentLimit))
+                .map(o -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", o.getId());
+                    m.put("totalPrice", o.getTotalPrice());
+                    m.put("status", o.getStatus());
+                    m.put("createdAt", o.getCreatedAt());
+                    m.put("customerName", o.getUser() != null ? o.getUser().getName() : null);
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(Map.of(
+                "revenue", revenue,
+                "ordersByStatus", ordersByStatus,
+                "recentOrders", recentOrders
+        ));
+    }
+
     // ────── Categories ──────
 
     /** Lấy tất cả danh mục (admin view) */
@@ -67,8 +152,16 @@ public class AdminController {
     /** Tạo danh mục mới */
     @PostMapping("/categories")
     public ResponseEntity<?> createCategory(@Valid @RequestBody CreateCategoryRequest req) {
+        if (req.getParentId() != null && !categoryRepository.existsById(req.getParentId())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Danh mục cha không tồn tại"));
+        }
         Category category = Category.builder()
                 .name(req.getName())
+                .slug(buildUniqueCategorySlug(
+                        req.getSlug() != null && !req.getSlug().isBlank() ? req.getSlug() : req.getName(),
+                        null))
+                .parentId(req.getParentId())
                 .description(req.getDescription())
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
@@ -86,6 +179,19 @@ public class AdminController {
         var category = categoryRepository.findById(id).orElse(null);
         if (category == null) return ResponseEntity.notFound().build();
         if (req.getName() != null && !req.getName().isBlank()) category.setName(req.getName());
+        if (req.getParentId() != null && !categoryRepository.existsById(req.getParentId())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Danh mục cha không tồn tại"));
+        }
+        if (req.getParentId() != null && req.getParentId().equals(category.getId())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Danh mục cha không hợp lệ"));
+        }
+        if (req.getParentId() != null) category.setParentId(req.getParentId());
+        if (req.getSlug() != null || req.getName() != null) {
+            String preferred = (req.getSlug() != null && !req.getSlug().isBlank()) ? req.getSlug() : category.getName();
+            category.setSlug(buildUniqueCategorySlug(preferred, category.getId()));
+        }
         if (req.getDescription() != null) category.setDescription(req.getDescription());
         category.setUpdatedAt(Instant.now());
         return ResponseEntity.ok(CategoryDto.fromEntity(categoryRepository.save(category)));

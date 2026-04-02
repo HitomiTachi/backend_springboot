@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @RestController
@@ -28,6 +29,34 @@ public class ProductsController {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+
+    private static String slugify(String input) {
+        if (input == null) return "";
+        String normalized = java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .trim()
+                .replaceAll("\\s+", "-")
+                .replaceAll("-{2,}", "-");
+        return normalized;
+    }
+
+    private String buildUniqueSlug(String preferred, Long currentProductId) {
+        String base = slugify(preferred);
+        if (base.isBlank()) {
+            base = "product-" + Instant.now().toEpochMilli();
+        }
+        String candidate = base;
+        int seq = 1;
+        while (true) {
+            var existed = productRepository.findBySlugIgnoreCase(candidate).orElse(null);
+            if (existed == null || (currentProductId != null && existed.getId().equals(currentProductId))) {
+                return candidate;
+            }
+            candidate = base + "-" + seq++;
+        }
+    }
 
     @GetMapping
     @Transactional(readOnly = true)
@@ -63,6 +92,18 @@ public class ProductsController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/slug/{slug}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<ProductDto> getBySlug(@PathVariable String slug) {
+        if (slug == null || slug.isBlank()) {
+            return ResponseEntity.notFound().build();
+        }
+        return productRepository.findBySlugIgnoreCase(slug.trim())
+                .map(ProductDto::fromEntity)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/featured")
     @Transactional(readOnly = true)
     public ResponseEntity<List<ProductDto>> getFeatured() {
@@ -84,6 +125,7 @@ public class ProductsController {
 
         Product product = Product.builder()
                 .name(req.getName())
+                .slug(buildUniqueSlug(req.getSlug() != null && !req.getSlug().isBlank() ? req.getSlug() : req.getName(), null))
                 .description(req.getDescription())
                 .image(req.getImage())
                 .price(req.getPrice())
@@ -111,6 +153,10 @@ public class ProductsController {
         }
 
         if (req.getName() != null) product.setName(req.getName());
+        if (req.getSlug() != null || req.getName() != null) {
+            String preferred = (req.getSlug() != null && !req.getSlug().isBlank()) ? req.getSlug() : product.getName();
+            product.setSlug(buildUniqueSlug(preferred, product.getId()));
+        }
         if (req.getDescription() != null) product.setDescription(req.getDescription());
         if (req.getImage() != null) product.setImage(req.getImage());
         if (req.getPrice() != null) product.setPrice(req.getPrice());

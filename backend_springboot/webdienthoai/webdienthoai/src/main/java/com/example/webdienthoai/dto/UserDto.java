@@ -22,6 +22,7 @@ public class UserDto {
     private String gender;
     private LocalDate dateOfBirth;
     private String avatarUrl;
+    private AddressDto defaultAddress;
     private Instant passwordChangedAt;
     private Instant createdAt;
 

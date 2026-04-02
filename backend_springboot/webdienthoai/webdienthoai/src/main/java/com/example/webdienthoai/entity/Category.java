@@ -23,6 +23,12 @@ public class Category {
     @Column(nullable = false)
     private String name;
 
+    @Column(length = 200, unique = true)
+    private String slug;
+
+    @Column(name = "parent_id")
+    private Long parentId;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
