@@ -34,6 +34,7 @@ public class OrdersController {
     private final OrderStatusService orderStatusService;
 
     @PostMapping
+    @Transactional
     public ResponseEntity<?> createOrder(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody CreateOrderRequest req) {
