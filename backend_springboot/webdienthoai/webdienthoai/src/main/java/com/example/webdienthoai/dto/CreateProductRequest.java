@@ -1,6 +1,5 @@
 package com.example.webdienthoai.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,10 +13,13 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 public class CreateProductRequest {
-    @NotBlank(message = "Tên sản phẩm không được để trống")
+    @jakarta.validation.constraints.NotBlank(message = "Tên sản phẩm không được để trống")
     private String name;
 
-    @NotBlank(message = "Slug không được để trống")
+    /**
+     * Hiện tại FE/BE chưa lưu `slug` trong entity `Product`, nên chỉ coi là optional (chống lỗi 400 validation).
+     * Nếu sau này thêm cột `slug` + migration thì có thể đưa về bắt buộc.
+     */
     private String slug;
 
     private String description;

@@ -131,7 +131,8 @@
 						<configuration>
 							<rules>
 								<requireJavaVersion>
-									<version>[21,22)</version>
+									<!-- Cho phép JDK 21–23 (máy dev thường cài 23; team vẫn có thể dùng 21) -->
+									<version>[21,24)</version>
 								</requireJavaVersion>
 								<requireMavenVersion>
 									<version>[3.9,)</version>
