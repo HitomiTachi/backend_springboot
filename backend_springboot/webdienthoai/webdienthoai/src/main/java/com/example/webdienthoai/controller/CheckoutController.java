@@ -9,6 +9,7 @@ import com.example.webdienthoai.repository.CartRepository;
 import com.example.webdienthoai.repository.CouponRepository;
 import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.security.UserPrincipal;
+import com.example.webdienthoai.service.ShippingPricing;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -79,7 +80,6 @@ public class CheckoutController {
             subtotal = subtotal.add(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
         }
 
-        BigDecimal shippingCost = req != null && req.getShippingCost() != null ? req.getShippingCost() : BigDecimal.ZERO;
         String couponCode = req != null ? req.getCouponCode() : null;
 
         BigDecimal discount = BigDecimal.ZERO;
@@ -116,6 +116,12 @@ public class CheckoutController {
                 couponCode = coupon.getCode();
             }
         }
+
+        BigDecimal netMerchandise = subtotal.subtract(discount);
+        if (netMerchandise.compareTo(BigDecimal.ZERO) < 0) {
+            netMerchandise = BigDecimal.ZERO;
+        }
+        BigDecimal shippingCost = ShippingPricing.computeForNetMerchandise(netMerchandise);
 
         BigDecimal totalPrice = subtotal.subtract(discount).add(shippingCost);
         if (totalPrice.compareTo(BigDecimal.ZERO) < 0) {
