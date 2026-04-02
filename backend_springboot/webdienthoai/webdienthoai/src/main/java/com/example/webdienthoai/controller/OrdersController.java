@@ -39,7 +39,7 @@ public class OrdersController {
         if ("cash_on_delivery".equalsIgnoreCase(paymentMethod)) {
             return "pending";
         }
-        if ("vnpay".equalsIgnoreCase(paymentMethod)) {
+        if ("vnpay".equalsIgnoreCase(paymentMethod) || "momo".equalsIgnoreCase(paymentMethod)) {
             return "pending_payment";
         }
         return "paid";
@@ -95,7 +95,7 @@ public class OrdersController {
                 .totalPrice(totalPrice)
             .paymentMethod(req.getPaymentMethod())
             .notes(req.getNotes())
-            // COD => pending; VNPay => chờ redirect thanh toán; thẻ/PayPal (demo) => paid ngay
+            // COD => pending; VNPay/MoMo => chờ redirect thanh toán; thẻ/PayPal (demo) => paid ngay
             .status(resolveInitialOrderStatus(req.getPaymentMethod()))
                 .items(new ArrayList<>())
                 .build();
