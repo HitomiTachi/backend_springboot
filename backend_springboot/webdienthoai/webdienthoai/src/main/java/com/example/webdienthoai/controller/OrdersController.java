@@ -32,6 +32,19 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class OrdersController {
 
+    private static String resolveInitialOrderStatus(String paymentMethod) {
+        if (paymentMethod == null || paymentMethod.isBlank()) {
+            return "pending";
+        }
+        if ("cash_on_delivery".equalsIgnoreCase(paymentMethod)) {
+            return "pending";
+        }
+        if ("vnpay".equalsIgnoreCase(paymentMethod)) {
+            return "pending_payment";
+        }
+        return "paid";
+    }
+
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
@@ -82,15 +95,8 @@ public class OrdersController {
                 .totalPrice(totalPrice)
             .paymentMethod(req.getPaymentMethod())
             .notes(req.getNotes())
-            // COD (thanh toán khi nhận hàng) => chưa thanh toán ngay
-            // Card/PayPal => simulate "đã thanh toán" ngay khi đặt hàng
-            .status(
-                    req.getPaymentMethod() == null || req.getPaymentMethod().isBlank()
-                            ? "pending"
-                            : "cash_on_delivery".equalsIgnoreCase(req.getPaymentMethod())
-                                ? "pending"
-                                : "paid"
-            )
+            // COD => pending; VNPay => chờ redirect thanh toán; thẻ/PayPal (demo) => paid ngay
+            .status(resolveInitialOrderStatus(req.getPaymentMethod()))
                 .items(new ArrayList<>())
                 .build();
 

@@ -13,7 +13,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class OrderStatusService {
 
-    private static final Set<String> ALLOWED = Set.of("pending", "paid", "shipping", "completed", "cancelled", "returned", "refunded");
+    private static final Set<String> ALLOWED = Set.of(
+            "pending", "pending_payment", "paid", "shipping", "completed", "cancelled", "returned", "refunded");
     private final OrderStatusAuditRepository orderStatusAuditRepository;
 
     public void validateStatus(String status) {
