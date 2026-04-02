@@ -13,6 +13,8 @@ import lombok.NoArgsConstructor;
 public class CategoryDto {
     private Long id;
     private String name;
+    private String slug;
+    private Long parentId;
     private String description;
 
     public static CategoryDto fromEntity(Category c) {
@@ -20,6 +22,8 @@ public class CategoryDto {
         return CategoryDto.builder()
                 .id(c.getId())
                 .name(c.getName())
+                .slug(c.getSlug())
+                .parentId(c.getParentId())
                 .description(c.getDescription())
                 .build();
     }

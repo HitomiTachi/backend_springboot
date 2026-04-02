@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 public class ProductDto {
     private Long id;
     private String name;
+    private String slug;
     private String description;
     private String image;
     private BigDecimal price;
@@ -28,6 +29,7 @@ public class ProductDto {
         return ProductDto.builder()
                 .id(p.getId())
                 .name(p.getName())
+                .slug(p.getSlug())
                 .description(p.getDescription())
                 .image(p.getImage())
                 .price(p.getPrice())

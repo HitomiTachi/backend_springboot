@@ -20,4 +20,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Page<Product> findByCategoryAndSearch(@Param("categoryId") Long categoryId, @Param("q") String q, Pageable pageable);
 
     List<Product> findByFeaturedTrue();
+
+    java.util.Optional<Product> findBySlugIgnoreCase(String slug);
+
+    boolean existsBySlugIgnoreCase(String slug);
 }

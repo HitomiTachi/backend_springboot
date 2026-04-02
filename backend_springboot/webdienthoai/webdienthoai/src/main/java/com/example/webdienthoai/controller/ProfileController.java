@@ -3,6 +3,7 @@ package com.example.webdienthoai.controller;
 import com.example.webdienthoai.dto.UpdateProfileRequest;
 import com.example.webdienthoai.dto.UserDto;
 import com.example.webdienthoai.entity.User;
+import com.example.webdienthoai.repository.AddressRepository;
 import com.example.webdienthoai.repository.UserRepository;
 import com.example.webdienthoai.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 public class ProfileController {
 
     private final UserRepository userRepository;
+    private final AddressRepository addressRepository;
 
     @GetMapping
     public ResponseEntity<?> getProfile(@AuthenticationPrincipal UserPrincipal principal) {
@@ -24,7 +26,12 @@ public class ProfileController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return userRepository.findById(principal.getUserId())
-                .map(UserDto::fromEntity)
+                .map(user -> {
+                    UserDto dto = UserDto.fromEntity(user);
+                    addressRepository.findFirstByUserIdAndIsDefaultTrue(user.getId())
+                            .ifPresent(address -> dto.setDefaultAddress(com.example.webdienthoai.dto.AddressDto.fromEntity(address)));
+                    return dto;
+                })
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
@@ -58,6 +65,9 @@ public class ProfileController {
             user.setAvatarUrl(v.isEmpty() ? null : v);
         }
         user = userRepository.save(user);
-        return ResponseEntity.ok(UserDto.fromEntity(user));
+        UserDto dto = UserDto.fromEntity(user);
+        addressRepository.findFirstByUserIdAndIsDefaultTrue(user.getId())
+                .ifPresent(address -> dto.setDefaultAddress(com.example.webdienthoai.dto.AddressDto.fromEntity(address)));
+        return ResponseEntity.ok(dto);
     }
 }

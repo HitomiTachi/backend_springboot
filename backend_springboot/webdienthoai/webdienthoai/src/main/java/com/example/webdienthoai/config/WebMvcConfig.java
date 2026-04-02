@@ -11,11 +11,17 @@ import java.nio.file.Paths;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
+    @Value("${app.storage.type:local}")
+    private String storageType;
+
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        if (!"local".equalsIgnoreCase(storageType)) {
+            return;
+        }
         Path uploadPath = Paths.get(uploadDir).toAbsolutePath();
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations("file:" + uploadPath + "/");

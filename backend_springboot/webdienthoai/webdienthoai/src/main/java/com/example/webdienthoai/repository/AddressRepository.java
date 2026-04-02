@@ -10,4 +10,6 @@ public interface AddressRepository extends JpaRepository<Address, Long> {
     List<Address> findByUserIdOrderByIdDesc(Long userId);
 
     long countByUserId(Long userId);
+
+    java.util.Optional<Address> findFirstByUserIdAndIsDefaultTrue(Long userId);
 }

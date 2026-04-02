@@ -20,6 +20,7 @@ public class CartItemDto {
     private Integer quantity;
     private String selectedColor;
     private String selectedStorage;
+    private String variant;
     private BigDecimal priceAtAdd;
     private BigDecimal lineTotal;
 
@@ -28,6 +29,18 @@ public class CartItemDto {
         BigDecimal lineTotal = item.getPriceAtAdd().multiply(
                 java.math.BigDecimal.valueOf(item.getQuantity())
         );
+        String color = item.getSelectedColor() != null ? item.getSelectedColor().trim() : "";
+        String storage = item.getSelectedStorage() != null ? item.getSelectedStorage().trim() : "";
+        String variant;
+        if (!color.isBlank() && !storage.isBlank()) {
+            variant = color + " / " + storage;
+        } else if (!color.isBlank()) {
+            variant = color;
+        } else if (!storage.isBlank()) {
+            variant = storage;
+        } else {
+            variant = null;
+        }
         return CartItemDto.builder()
                 .id(item.getId())
                 .productId(item.getProduct().getId())
@@ -36,6 +49,7 @@ public class CartItemDto {
                 .quantity(item.getQuantity())
                 .selectedColor(item.getSelectedColor())
                 .selectedStorage(item.getSelectedStorage())
+                .variant(variant)
                 .priceAtAdd(item.getPriceAtAdd())
                 .lineTotal(lineTotal)
                 .build();

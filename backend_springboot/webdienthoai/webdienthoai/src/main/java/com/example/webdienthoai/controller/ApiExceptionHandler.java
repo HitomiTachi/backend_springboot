@@ -16,6 +16,9 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import com.example.webdienthoai.exception.AuthLockedException;
+import com.example.webdienthoai.exception.AuthUnauthorizedException;
+import com.example.webdienthoai.exception.DuplicateEmailException;
 
 /**
  * Trả về lỗi JSON thống nhất để frontend parse (message, code).
@@ -46,6 +49,36 @@ public class ApiExceptionHandler {
                 HttpStatus.UNAUTHORIZED,
                 "INVALID_CREDENTIALS",
                 e.getMessage() != null ? e.getMessage() : "Email hoặc mật khẩu sai",
+                request,
+                Map.of());
+    }
+
+    @ExceptionHandler(AuthUnauthorizedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAuthUnauthorized(AuthUnauthorizedException e, HttpServletRequest request) {
+        return build(
+                HttpStatus.UNAUTHORIZED,
+                "UNAUTHORIZED",
+                e.getMessage() != null ? e.getMessage() : "Chưa đăng nhập",
+                request,
+                Map.of());
+    }
+
+    @ExceptionHandler(AuthLockedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAuthLocked(AuthLockedException e, HttpServletRequest request) {
+        return build(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "ACCOUNT_LOCKED",
+                e.getMessage() != null ? e.getMessage() : "Tài khoản tạm thời bị khóa",
+                request,
+                Map.of("retryAfterSeconds", e.getRetryAfterSeconds()));
+    }
+
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ResponseEntity<ApiErrorResponse> handleDuplicateEmail(DuplicateEmailException e, HttpServletRequest request) {
+        return build(
+                HttpStatus.CONFLICT,
+                "EMAIL_ALREADY_USED",
+                e.getMessage() != null ? e.getMessage() : "Email đã được sử dụng",
                 request,
                 Map.of());
     }
