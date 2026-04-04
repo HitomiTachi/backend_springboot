@@ -1,10 +1,12 @@
 package com.example.webdienthoai.payment;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.TreeMap;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * HMAC SHA512 và verify chữ ký theo luồng VNPay (tham khảo tài liệu & bài mẫu, không phụ thuộc code mẫu).
@@ -59,11 +61,17 @@ public final class VnpaySigningUtil {
             }
         }
         StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, String> e : sorted.entrySet()) {
-            if (sb.length() > 0) {
-                sb.append('&');
+        try {
+            for (Map.Entry<String, String> e : sorted.entrySet()) {
+                if (sb.length() > 0) {
+                    sb.append('&');
+                }
+                sb.append(URLEncoder.encode(e.getKey(), StandardCharsets.US_ASCII.toString()))
+                  .append('=')
+                  .append(URLEncoder.encode(e.getValue(), StandardCharsets.US_ASCII.toString()));
             }
-            sb.append(e.getKey()).append('=').append(e.getValue());
+        } catch (Exception ex) {
+            return false;
         }
         String calculated = hmacSHA512(hashSecret, sb.toString());
         return received.equalsIgnoreCase(calculated);

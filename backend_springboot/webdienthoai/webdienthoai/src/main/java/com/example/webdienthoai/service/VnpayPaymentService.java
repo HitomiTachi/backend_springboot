@@ -205,9 +205,67 @@ public class VnpayPaymentService {
 
     private static String urlEncode(String s) {
         try {
-            return URLEncoder.encode(s, StandardCharsets.UTF_8);
+            return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
         } catch (Exception e) {
             return "";
         }
+    }
+
+    /**
+     * Xử lý IPN từ VNPay (Server-to-Server). Trả về JSON chuẩn VNPay.
+     */
+    @Transactional
+    public String handleIpn(Map<String, String> params) {
+        if (!isReady()) {
+            return "{\"RspCode\":\"99\",\"Message\":\"Unknown error\"}";
+        }
+        if (!VnpaySigningUtil.verifyReturnSignature(params, vnpayProperties.getHashSecret())) {
+            return "{\"RspCode\":\"97\",\"Message\":\"Invalid signature\"}";
+        }
+        String txnRef = params.get("vnp_TxnRef");
+        Long orderId = parseOrderIdFromTxnRef(txnRef);
+        if (orderId == null) {
+            return "{\"RspCode\":\"01\",\"Message\":\"Order not found\"}";
+        }
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return "{\"RspCode\":\"01\",\"Message\":\"Order not found\"}";
+        }
+
+        long expectedVnp = order.getTotalPrice()
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(0, RoundingMode.HALF_UP)
+                .longValueExact();
+        long returnedVnp = -1;
+        try {
+            String amtStr = params.get("vnp_Amount");
+            if (amtStr != null) {
+                returnedVnp = Long.parseLong(amtStr);
+            }
+        } catch (Exception ignored) { }
+
+        if (expectedVnp != returnedVnp) {
+            return "{\"RspCode\":\"04\",\"Message\":\"Invalid amount\"}";
+        }
+
+        String rsp = params.get("vnp_ResponseCode");
+        String currentStatus = orderStatusService.normalize(order.getStatus());
+
+        if ("paid".equals(currentStatus) || "completed".equals(currentStatus) || "cancelled".equals(currentStatus) || "shipping".equals(currentStatus)) {
+            return "{\"RspCode\":\"02\",\"Message\":\"Order already confirmed\"}";
+        }
+
+        if ("00".equals(rsp) && "vnpay".equalsIgnoreCase(String.valueOf(order.getPaymentMethod()))) {
+            if ("pending_payment".equals(currentStatus) || "pending".equals(currentStatus)) {
+                orderStatusService.changeStatus(order, "paid", "vnpay_ipn", "Thanh toán VNPay thành công (IPN)");
+                orderRepository.save(order);
+            }
+        } else {
+            if ("pending_payment".equals(currentStatus)) {
+                orderStatusService.changeStatus(order, "cancelled", "vnpay_ipn", "Thanh toán VNPay thất bại mã: " + rsp);
+                orderRepository.save(order);
+            }
+        }
+        return "{\"RspCode\":\"00\",\"Message\":\"Confirm Success\"}";
     }
 }
