@@ -69,4 +69,21 @@ public class VnpayPaymentController {
         String redirect = vnpayPaymentService.handleReturn(params);
         response.sendRedirect(redirect);
     }
+
+    /**
+     * VNPay IPN (GET) - webhook do VNPay Server gọi vào qua background.
+     */
+    @GetMapping("/ipn")
+    public ResponseEntity<String> ipnFromVnpay(HttpServletRequest request) {
+        Map<String, String> params = new HashMap<>();
+        request.getParameterMap().forEach((k, v) -> {
+            if (v != null && v.length > 0) {
+                params.put(k, v[0]);
+            }
+        });
+        String jsonResponse = vnpayPaymentService.handleIpn(params);
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/json")
+                .body(jsonResponse);
+    }
 }
