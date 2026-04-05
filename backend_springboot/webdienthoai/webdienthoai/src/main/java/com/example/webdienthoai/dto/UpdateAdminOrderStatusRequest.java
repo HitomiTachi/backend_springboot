@@ -7,5 +7,8 @@ import lombok.Data;
 public class UpdateAdminOrderStatusRequest {
     @NotBlank(message = "status is required")
     private String status;
+
+    /** Ghi chú kiểm toán (ví dụ lý do hủy). */
+    private String reason;
 }
 

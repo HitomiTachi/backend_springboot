@@ -2,6 +2,7 @@ package com.example.webdienthoai.controller;
 
 import com.example.webdienthoai.dto.*;
 import com.example.webdienthoai.entity.*;
+import com.example.webdienthoai.repository.AddressRepository;
 import com.example.webdienthoai.repository.OrderRepository;
 import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.repository.UserRepository;
@@ -9,6 +10,7 @@ import com.example.webdienthoai.repository.CartRepository;
 import com.example.webdienthoai.repository.ShipmentRepository;
 
 import com.example.webdienthoai.security.UserPrincipal;
+import com.example.webdienthoai.service.CouponDiscountService;
 import com.example.webdienthoai.service.OrderStatusService;
 import com.example.webdienthoai.service.ShippingPricing;
 import jakarta.validation.Valid;
@@ -22,10 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Objects;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @RestController
@@ -46,11 +50,31 @@ public class OrdersController {
         return "paid";
     }
 
+    private static boolean moneyEquals(BigDecimal a, BigDecimal b) {
+        if (a == null && b == null) {
+            return true;
+        }
+        if (a == null || b == null) {
+            return false;
+        }
+        return a.setScale(2, RoundingMode.HALF_UP).compareTo(b.setScale(2, RoundingMode.HALF_UP)) == 0;
+    }
+
+    private static String trimToNull(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
+    }
+
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final CartRepository cartRepository;
     private final ShipmentRepository shipmentRepository;
+    private final AddressRepository addressRepository;
+    private final CouponDiscountService couponDiscountService;
 
     private final OrderStatusService orderStatusService;
 
@@ -70,82 +94,134 @@ public class OrdersController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "Vui lòng đăng nhập"));
         }
-        User user = userRepository.findById(principal.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        try {
+            User user = userRepository.findById(principal.getUserId())
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng"));
 
-        BigDecimal computedSubtotal = BigDecimal.ZERO;
-        for (OrderItemRequest itemReq : req.getItems()) {
-            if (itemReq.getQuantity() == null || itemReq.getQuantity() <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Số lượng sản phẩm phải lớn hơn 0"));
+            if (req.getShippingAddressId() == null) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng chọn địa chỉ giao hàng"));
             }
-            if (itemReq.getPrice() == null || itemReq.getPrice().compareTo(BigDecimal.ZERO) < 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Giá sản phẩm không hợp lệ"));
+            Address shipping = addressRepository.findById(req.getShippingAddressId())
+                    .orElseThrow(() -> new IllegalArgumentException("Địa chỉ giao hàng không tồn tại"));
+            if (!shipping.getUserId().equals(principal.getUserId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("message", "Không có quyền dùng địa chỉ này"));
             }
-            computedSubtotal = computedSubtotal.add(
-                    itemReq.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity())));
-        }
-        BigDecimal discount = Objects.requireNonNullElse(req.getDiscountAmount(), BigDecimal.ZERO);
-        if (discount.compareTo(computedSubtotal) > 0) {
-            discount = computedSubtotal;
-        }
-        BigDecimal netMerchandise = computedSubtotal.subtract(discount).max(BigDecimal.ZERO);
-        BigDecimal shippingCost = ShippingPricing.computeForNetMerchandise(netMerchandise);
-        BigDecimal totalPrice = computedSubtotal.subtract(discount).add(shippingCost);
-        if (totalPrice.compareTo(BigDecimal.ZERO) < 0) {
-            totalPrice = BigDecimal.ZERO;
-        }
 
-        Order order = Order.builder()
-                .user(user)
-            .shippingAddressId(req.getShippingAddressId())
-            .subtotal(computedSubtotal)
-            .discountAmount(discount)
-            .shippingCost(shippingCost)
-                .totalPrice(totalPrice)
-            .paymentMethod(req.getPaymentMethod())
-            .notes(req.getNotes())
-            // COD => pending; VNPay => chờ redirect thanh toán; thẻ/PayPal (demo) => paid ngay
-            .status(resolveInitialOrderStatus(req.getPaymentMethod()))
-                .items(new ArrayList<>())
-                .build();
+            List<OrderItemRequest> sortedItems = new ArrayList<>(req.getItems());
+            sortedItems.sort(Comparator.comparing(OrderItemRequest::getProductId));
 
-        for (OrderItemRequest itemReq : req.getItems()) {
-            Product product = productRepository.findById(itemReq.getProductId())
-                    .orElseThrow(() -> new IllegalArgumentException("Product not found: " + itemReq.getProductId()));
-            int currentStock = product.getStock() != null ? product.getStock() : 0;
-            if (itemReq.getQuantity() == null || itemReq.getQuantity() <= 0) {
-                throw new IllegalArgumentException("Số lượng sản phẩm phải lớn hơn 0");
-            }
-            if (currentStock < itemReq.getQuantity()) {
-                throw new IllegalArgumentException("Sản phẩm không đủ tồn kho: " + product.getName());
-            }
-            product.setStock(currentStock - itemReq.getQuantity());
-            productRepository.save(product);
-            OrderItem item = OrderItem.builder()
-                    .order(order)
-                    .product(product)
-                    .productName(product.getName())
-                    .productImage(product.getImage())
-                    .quantity(itemReq.getQuantity())
-                    .priceAtOrder(itemReq.getPrice())
-                    .lineTotal(itemReq.getPrice().multiply(java.math.BigDecimal.valueOf(itemReq.getQuantity())))
+            BigDecimal computedSubtotal = BigDecimal.ZERO;
+            Order order = Order.builder()
+                    .user(user)
+                    .shippingAddressId(req.getShippingAddressId())
+                    .paymentMethod(req.getPaymentMethod())
+                    .notes(req.getNotes())
+                    .status(resolveInitialOrderStatus(req.getPaymentMethod()))
+                    .items(new ArrayList<>())
                     .build();
-            order.getItems().add(item);
-        }
 
-        order = orderRepository.save(order);
-        orderStatusService.changeStatus(order, order.getStatus(), "system", "Đơn hàng được tạo");
-        order = orderRepository.save(order);
+            for (OrderItemRequest itemReq : sortedItems) {
+                if (itemReq.getQuantity() == null || itemReq.getQuantity() <= 0) {
+                    return ResponseEntity.badRequest().body(Map.of("message", "Số lượng sản phẩm phải lớn hơn 0"));
+                }
+                if (itemReq.getPrice() == null || itemReq.getPrice().compareTo(BigDecimal.ZERO) < 0) {
+                    return ResponseEntity.badRequest().body(Map.of("message", "Giá sản phẩm không hợp lệ"));
+                }
 
-        // Đồng bộ hành vi checkout: sau khi đặt hàng thành công thì xóa cart server.
-        cartRepository.findByUserId(principal.getUserId()).ifPresent(cart -> {
-            if (cart.getItems() != null && !cart.getItems().isEmpty()) {
-                cart.getItems().clear();
-                cartRepository.save(cart);
+                Product product = productRepository.findByIdForUpdate(itemReq.getProductId())
+                        .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại: " + itemReq.getProductId()));
+
+                if (product.getPrice().compareTo(itemReq.getPrice()) != 0) {
+                    throw new IllegalArgumentException(
+                            "Giá sản phẩm \"" + product.getName() + "\" đã thay đổi. Giá hiện tại: " + product.getPrice());
+                }
+
+                int currentStock = product.getStock() != null ? product.getStock() : 0;
+                if (currentStock < itemReq.getQuantity()) {
+                    throw new IllegalArgumentException("Sản phẩm không đủ tồn kho: " + product.getName());
+                }
+                product.setStock(currentStock - itemReq.getQuantity());
+                productRepository.save(product);
+
+                BigDecimal unitPrice = product.getPrice();
+                BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+                computedSubtotal = computedSubtotal.add(lineTotal);
+
+                OrderItem item = OrderItem.builder()
+                        .order(order)
+                        .product(product)
+                        .productName(product.getName())
+                        .productImage(product.getImage())
+                        .quantity(itemReq.getQuantity())
+                        .priceAtOrder(unitPrice)
+                        .lineTotal(lineTotal)
+                        .selectedColor(trimToNull(itemReq.getSelectedColor()))
+                        .selectedStorage(trimToNull(itemReq.getSelectedStorage()))
+                        .build();
+                order.getItems().add(item);
             }
-        });
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(toOrderDto(order));
+            BigDecimal clientDiscount = Objects.requireNonNullElse(req.getDiscountAmount(), BigDecimal.ZERO);
+            if (clientDiscount.compareTo(BigDecimal.ZERO) < 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Số tiền giảm giá không hợp lệ"));
+            }
+            String couponRaw = req.getCouponCode();
+            if (clientDiscount.compareTo(BigDecimal.ZERO) > 0
+                    && (couponRaw == null || couponRaw.isBlank())) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message", "Có giảm giá nhưng không có mã coupon hợp lệ — vui lòng nhập mã hoặc tải lại trang"));
+            }
+
+            CouponDiscountService.CouponApplyResult couponApply =
+                    couponDiscountService.computeDiscountOrThrow(couponRaw, computedSubtotal);
+            BigDecimal discount = couponApply.discount();
+            if (!moneyEquals(clientDiscount, discount)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message", "Tổng giảm giá không khớp với mã áp dụng. Vui lòng tải lại bước thanh toán."));
+            }
+
+            BigDecimal netMerchandise = computedSubtotal.subtract(discount).max(BigDecimal.ZERO);
+            BigDecimal shippingCost = ShippingPricing.computeForNetMerchandise(netMerchandise);
+            BigDecimal totalPrice = computedSubtotal.subtract(discount).add(shippingCost);
+            if (totalPrice.compareTo(BigDecimal.ZERO) < 0) {
+                totalPrice = BigDecimal.ZERO;
+            }
+
+            if (req.getSubtotal() != null && !moneyEquals(req.getSubtotal(), computedSubtotal)) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Tổng tiền hàng không khớp. Vui lòng tải lại."));
+            }
+            if (req.getShippingCost() != null && !moneyEquals(req.getShippingCost(), shippingCost)) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Phí vận chuyển không khớp. Vui lòng tải lại."));
+            }
+            if (!moneyEquals(req.getTotalPrice(), totalPrice)) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Tổng thanh toán không khớp. Vui lòng tải lại."));
+            }
+
+            order.setSubtotal(computedSubtotal);
+            order.setDiscountAmount(discount);
+            order.setShippingCost(shippingCost);
+            order.setTotalPrice(totalPrice);
+            order.setCouponCode(couponApply.canonicalCode());
+
+            order = orderRepository.save(order);
+            orderStatusService.changeStatus(order, order.getStatus(), "system", "Đơn hàng được tạo");
+            order = orderRepository.save(order);
+
+            boolean vnpay = "vnpay".equalsIgnoreCase(String.valueOf(req.getPaymentMethod()));
+            if (!vnpay) {
+                cartRepository.findByUserId(principal.getUserId()).ifPresent(cart -> {
+                    if (cart.getItems() != null && !cart.getItems().isEmpty()) {
+                        cart.getItems().clear();
+                        cartRepository.save(cart);
+                    }
+                });
+            }
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(toOrderDto(order));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        }
     }
 
     /**
@@ -200,6 +276,13 @@ public class OrdersController {
         if (!orderStatusService.canCustomerCancel(order.getStatus())) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("message", "Chỉ có thể hủy đơn khi đơn đang chờ xác nhận hoặc chờ thanh toán"));
+        }
+
+        String st = orderStatusService.normalize(order.getStatus());
+        if ("vnpay".equalsIgnoreCase(String.valueOf(order.getPaymentMethod())) && "pending_payment".equals(st)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message",
+                            "Đơn VNPay đang chờ thanh toán — không hủy từ đây. Bỏ qua phiên thanh toán hoặc liên hệ hỗ trợ."));
         }
 
         for (OrderItem item : order.getItems()) {

@@ -3,8 +3,12 @@ package com.example.webdienthoai.service;
 import com.example.webdienthoai.config.AppUrlProperties;
 import com.example.webdienthoai.config.VnpayProperties;
 import com.example.webdienthoai.entity.Order;
+import com.example.webdienthoai.entity.OrderItem;
+import com.example.webdienthoai.entity.Product;
 import com.example.webdienthoai.payment.VnpaySigningUtil;
+import com.example.webdienthoai.repository.CartRepository;
 import com.example.webdienthoai.repository.OrderRepository;
+import com.example.webdienthoai.repository.ProductRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -35,6 +39,8 @@ public class VnpayPaymentService {
     private final AppUrlProperties appUrlProperties;
     private final OrderRepository orderRepository;
     private final OrderStatusService orderStatusService;
+    private final CartRepository cartRepository;
+    private final ProductRepository productRepository;
 
     public boolean isReady() {
         return vnpayProperties.isEnabled()
@@ -123,6 +129,33 @@ public class VnpayPaymentService {
         return vnpayProperties.getPayUrl() + "?" + query;
     }
 
+    private void clearCartForUser(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        cartRepository.findByUserId(userId).ifPresent(cart -> {
+            if (cart.getItems() != null && !cart.getItems().isEmpty()) {
+                cart.getItems().clear();
+                cartRepository.save(cart);
+            }
+        });
+    }
+
+    private void restockOrderItems(Order order) {
+        if (order.getItems() == null) {
+            return;
+        }
+        for (OrderItem item : order.getItems()) {
+            Product p = item.getProduct();
+            if (p != null) {
+                int stock = p.getStock() != null ? p.getStock() : 0;
+                int qty = item.getQuantity() != null ? item.getQuantity() : 0;
+                p.setStock(stock + qty);
+                productRepository.save(p);
+            }
+        }
+    }
+
     /**
      * Xử lý return URL VNPay: verify chữ ký, khớp số tiền, cập nhật đơn {@code paid} khi thành công.
      *
@@ -165,6 +198,7 @@ public class VnpayPaymentService {
             if ("pending_payment".equals(orderStatusService.normalize(order.getStatus()))) {
                 orderStatusService.changeStatus(order, "paid", "vnpay", "Thanh toán VNPay thành công (return URL)");
                 orderRepository.save(order);
+                clearCartForUser(order.getUserId());
             }
             return base + "/order-confirmation/" + orderId + "?payment=success";
         }
@@ -227,7 +261,7 @@ public class VnpayPaymentService {
         if (orderId == null) {
             return "{\"RspCode\":\"01\",\"Message\":\"Order not found\"}";
         }
-        Order order = orderRepository.findById(orderId).orElse(null);
+        Order order = orderRepository.findWithItemsAndProductsById(orderId).orElse(null);
         if (order == null) {
             return "{\"RspCode\":\"01\",\"Message\":\"Order not found\"}";
         }
@@ -259,9 +293,11 @@ public class VnpayPaymentService {
             if ("pending_payment".equals(currentStatus) || "pending".equals(currentStatus)) {
                 orderStatusService.changeStatus(order, "paid", "vnpay_ipn", "Thanh toán VNPay thành công (IPN)");
                 orderRepository.save(order);
+                clearCartForUser(order.getUserId());
             }
         } else {
             if ("pending_payment".equals(currentStatus)) {
+                restockOrderItems(order);
                 orderStatusService.changeStatus(order, "cancelled", "vnpay_ipn", "Thanh toán VNPay thất bại mã: " + rsp);
                 orderRepository.save(order);
             }

@@ -27,6 +27,8 @@ public class OrderDto {
     private BigDecimal totalPrice;
     private String paymentMethod;
     private String notes;
+    /** Mã giảm giá đã áp dụng (nếu có). */
+    private String couponCode;
     private String status;
     private Instant createdAt;
     /** Thông tin vận chuyển (3PL); null nếu chưa tạo. */
@@ -74,6 +76,7 @@ public class OrderDto {
                 .totalPrice(o.getTotalPrice())
             .paymentMethod(o.getPaymentMethod())
             .notes(o.getNotes())
+                .couponCode(o.getCouponCode())
                 .status(o.getStatus())
                 .createdAt(o.getCreatedAt())
                 .shipment(ShipmentDto.fromEntity(shipment))

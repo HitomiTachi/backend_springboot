@@ -12,6 +12,7 @@ import com.example.webdienthoai.repository.AddressRepository;
 import com.example.webdienthoai.repository.OrderRepository;
 import com.example.webdienthoai.repository.OrderStatusAuditRepository;
 import com.example.webdienthoai.repository.ProductRepository;
+import com.example.webdienthoai.security.UserPrincipal;
 import com.example.webdienthoai.service.OrderStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -19,6 +20,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -136,13 +138,25 @@ public class AdminOrdersController {
     @PatchMapping("/{id}/status")
     @Transactional
     public ResponseEntity<?> updateOrderStatus(
+            @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id,
             @RequestBody UpdateAdminOrderStatusRequest req) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         return orderRepository.findById(id).map(o -> {
             try {
                 String oldStatus = orderStatusService.normalize(o.getStatus());
                 String newStatus = orderStatusService.normalize(req.getStatus());
                 orderStatusService.validateStatus(newStatus);
+
+                if ("vnpay".equalsIgnoreCase(String.valueOf(o.getPaymentMethod()))
+                        && "pending_payment".equals(oldStatus)
+                        && ("cancelled".equals(newStatus) || "rejected".equals(newStatus))) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message",
+                            "Không hủy/từ chối đơn VNPay đang chờ thanh toán từ admin — chờ kết quả cổng thanh toán."));
+                }
+
                 orderStatusService.validateAdminTransition(oldStatus, newStatus);
 
                 boolean restock = !"cancelled".equals(oldStatus)
@@ -159,7 +173,12 @@ public class AdminOrdersController {
                     }
                 }
 
-                orderStatusService.changeStatus(o, newStatus, "admin", "Admin cập nhật trạng thái đơn");
+                String actor = "admin:" + principal.getUserId() + "(" + principal.getEmail() + ")";
+                String note = "Admin cập nhật trạng thái đơn";
+                if (req.getReason() != null && !req.getReason().isBlank()) {
+                    note = note + " — " + req.getReason().trim();
+                }
+                orderStatusService.changeStatus(o, newStatus, actor, note);
                 Order saved = orderRepository.save(o);
                 return ResponseEntity.ok(mapOrder(saved));
             } catch (IllegalArgumentException ex) {

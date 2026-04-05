@@ -4,11 +4,11 @@ import com.example.webdienthoai.dto.CheckoutQuoteRequest;
 import com.example.webdienthoai.dto.CheckoutQuoteResponse;
 import com.example.webdienthoai.dto.OrderItemRequest;
 import com.example.webdienthoai.entity.Cart;
-import com.example.webdienthoai.entity.Coupon;
+import com.example.webdienthoai.entity.Product;
 import com.example.webdienthoai.repository.CartRepository;
-import com.example.webdienthoai.repository.CouponRepository;
 import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.security.UserPrincipal;
+import com.example.webdienthoai.service.CouponDiscountService;
 import com.example.webdienthoai.service.ShippingPricing;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,10 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 @RestController
@@ -30,7 +28,7 @@ import java.util.Map;
 public class CheckoutController {
     private final CartRepository cartRepository;
     private final ProductRepository productRepository;
-    private final CouponRepository couponRepository;
+    private final CouponDiscountService couponDiscountService;
 
     @PostMapping("/quote")
     @Transactional(readOnly = true)
@@ -60,6 +58,8 @@ public class CheckoutController {
                 ir.setProductId(ci.getProduct().getId());
                 ir.setQuantity(ci.getQuantity());
                 ir.setPrice(ci.getPriceAtAdd());
+                ir.setSelectedColor(ci.getSelectedColor());
+                ir.setSelectedStorage(ci.getSelectedStorage());
                 items.add(ir);
             }
         }
@@ -72,12 +72,18 @@ public class CheckoutController {
             if (item.getPrice() == null || item.getPrice().compareTo(BigDecimal.ZERO) < 0) {
                 return ResponseEntity.badRequest().body(Map.of("message", "Giá sản phẩm không hợp lệ"));
             }
-            var product = productRepository.findById(item.getProductId()).orElse(null);
+            Product product = productRepository.findById(item.getProductId()).orElse(null);
             if (product == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("message", "Sản phẩm không tồn tại: " + item.getProductId()));
             }
-            subtotal = subtotal.add(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+            BigDecimal unit = product.getPrice();
+            if (item.getPrice().compareTo(unit) != 0) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message",
+                        "Giá sản phẩm \"" + product.getName() + "\" đã thay đổi. Giá hiện tại: " + unit));
+            }
+            subtotal = subtotal.add(unit.multiply(BigDecimal.valueOf(item.getQuantity())));
         }
 
         String couponCode = req != null ? req.getCouponCode() : null;
@@ -87,33 +93,17 @@ public class CheckoutController {
         String couponMessage = null;
 
         if (couponCode != null && !couponCode.isBlank()) {
-            Coupon coupon = couponRepository.findByCodeIgnoreCase(couponCode.trim()).orElse(null);
-            if (coupon == null || !Boolean.TRUE.equals(coupon.getActive())) {
-                couponMessage = "Mã giảm giá không hợp lệ hoặc đã ngừng áp dụng";
-            } else if (coupon.getStartsAt() != null && Instant.now().isBefore(coupon.getStartsAt())) {
-                couponMessage = "Mã giảm giá chưa đến thời gian áp dụng";
-            } else if (coupon.getEndsAt() != null && Instant.now().isAfter(coupon.getEndsAt())) {
-                couponMessage = "Mã giảm giá đã hết hạn";
-            } else if (coupon.getMinOrderAmount() != null && subtotal.compareTo(coupon.getMinOrderAmount()) < 0) {
-                couponMessage = "Đơn hàng chưa đạt giá trị tối thiểu để dùng mã";
-            } else {
-                String discountType = coupon.getDiscountType() != null ? coupon.getDiscountType().trim().toLowerCase(Locale.ROOT) : "";
-                if ("percent".equals(discountType)) {
-                    discount = subtotal.multiply(coupon.getDiscountValue()).divide(BigDecimal.valueOf(100));
-                } else if ("fixed".equals(discountType)) {
-                    discount = coupon.getDiscountValue();
-                } else {
-                    return ResponseEntity.badRequest().body(Map.of("message", "Loại coupon không hợp lệ"));
+            try {
+                CouponDiscountService.CouponApplyResult applied =
+                        couponDiscountService.computeDiscountOrThrow(couponCode, subtotal);
+                discount = applied.discount();
+                if (applied.canonicalCode() != null) {
+                    couponApplied = true;
+                    couponMessage = "Áp dụng mã giảm giá thành công";
+                    couponCode = applied.canonicalCode();
                 }
-                if (coupon.getMaxDiscountAmount() != null && discount.compareTo(coupon.getMaxDiscountAmount()) > 0) {
-                    discount = coupon.getMaxDiscountAmount();
-                }
-                if (discount.compareTo(subtotal) > 0) {
-                    discount = subtotal;
-                }
-                couponApplied = true;
-                couponMessage = "Áp dụng mã giảm giá thành công";
-                couponCode = coupon.getCode();
+            } catch (IllegalArgumentException ex) {
+                couponMessage = ex.getMessage();
             }
         }
 

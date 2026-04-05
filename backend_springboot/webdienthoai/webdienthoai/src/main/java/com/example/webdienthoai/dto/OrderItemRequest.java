@@ -14,4 +14,8 @@ public class OrderItemRequest {
     private Integer quantity;
     @NotNull
     private BigDecimal price;
+
+    private String selectedColor;
+
+    private String selectedStorage;
 }

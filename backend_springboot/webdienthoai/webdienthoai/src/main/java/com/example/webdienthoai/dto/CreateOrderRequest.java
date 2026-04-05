@@ -33,4 +33,7 @@ public class CreateOrderRequest {
     private String paymentMethod;
 
     private String notes;
+
+    /** Mã coupon (server tính lại giảm giá; không tin discountAmount từ client). */
+    private String couponCode;
 }

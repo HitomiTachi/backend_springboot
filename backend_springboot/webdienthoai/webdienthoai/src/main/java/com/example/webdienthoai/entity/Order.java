@@ -56,6 +56,10 @@ public class Order {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    /** Mã giảm giá đã áp dụng khi tạo đơn (null nếu không có). */
+    @Column(name = "coupon_code", length = 80)
+    private String couponCode;
+
     @Column(nullable = false)
     @Builder.Default
     private String status = "pending";
