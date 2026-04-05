@@ -110,7 +110,9 @@ public class AdminController {
                     // Simple heuristic:
                     // - count paid/completed/shipping as revenue
                     // - subtract refunded orders
-                    return "paid".equals(s) || "shipping".equals(s) || "completed".equals(s) || "returned".equals(s) || "refunded".equals(s);
+                    return "paid".equals(s) || "confirmed".equals(s) || "processing".equals(s)
+                            || "shipping".equals(s) || "shipped".equals(s) || "delivered".equals(s)
+                            || "completed".equals(s) || "returned".equals(s) || "refunded".equals(s);
                 })
                 .map(o -> {
                     String s = o.getStatus() != null ? o.getStatus().trim().toLowerCase() : "pending";

@@ -251,7 +251,7 @@ public class VnpayPaymentService {
         String rsp = params.get("vnp_ResponseCode");
         String currentStatus = orderStatusService.normalize(order.getStatus());
 
-        if ("paid".equals(currentStatus) || "completed".equals(currentStatus) || "cancelled".equals(currentStatus) || "shipping".equals(currentStatus)) {
+        if (orderStatusService.isVnpayAlreadyFinalized(currentStatus)) {
             return "{\"RspCode\":\"02\",\"Message\":\"Order already confirmed\"}";
         }
 

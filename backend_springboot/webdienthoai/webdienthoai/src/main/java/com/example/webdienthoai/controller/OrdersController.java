@@ -6,6 +6,7 @@ import com.example.webdienthoai.repository.OrderRepository;
 import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.repository.UserRepository;
 import com.example.webdienthoai.repository.CartRepository;
+import com.example.webdienthoai.repository.ShipmentRepository;
 
 import com.example.webdienthoai.security.UserPrincipal;
 import com.example.webdienthoai.service.OrderStatusService;
@@ -49,8 +50,16 @@ public class OrdersController {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final CartRepository cartRepository;
+    private final ShipmentRepository shipmentRepository;
 
     private final OrderStatusService orderStatusService;
+
+    private OrderDto toOrderDto(Order order) {
+        if (order == null || order.getId() == null) {
+            return OrderDto.fromEntity(order, null);
+        }
+        return OrderDto.fromEntity(order, shipmentRepository.findByOrderId(order.getId()).orElse(null));
+    }
 
     @PostMapping
     @Transactional
@@ -136,7 +145,7 @@ public class OrdersController {
             }
         });
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(OrderDto.fromEntity(order));
+        return ResponseEntity.status(HttpStatus.CREATED).body(toOrderDto(order));
     }
 
     /**
@@ -163,10 +172,16 @@ public class OrdersController {
                     .body(Map.of("message", "Chỉ áp dụng cho đơn thanh toán khi nhận hàng (COD)"));
         }
 
-        // Mark as paid when customer confirms received.
-        orderStatusService.changeStatus(order, "paid", "customer:" + principal.getUserId(), "Khách xác nhận nhận hàng COD");
+        String st = orderStatusService.normalize(order.getStatus());
+        if (!"shipped".equals(st) && !"shipping".equals(st)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Chỉ xác nhận nhận hàng khi đơn đã giao cho đơn vị vận chuyển"));
+        }
+
+        orderStatusService.changeStatus(order, "delivered", "customer:" + principal.getUserId(), "Khách xác nhận đã nhận hàng (COD)");
+        orderStatusService.changeStatus(order, "completed", "customer:" + principal.getUserId(), "Hoàn tất đơn COD");
         order = orderRepository.save(order);
-        return ResponseEntity.ok(OrderDto.fromEntity(order));
+        return ResponseEntity.ok(toOrderDto(order));
     }
 
     @PatchMapping("/{id}/cancel")
@@ -182,10 +197,9 @@ public class OrdersController {
             return ResponseEntity.notFound().build();
         }
 
-        String status = orderStatusService.normalize(order.getStatus());
-        if ("completed".equals(status) || "cancelled".equals(status)) {
+        if (!orderStatusService.canCustomerCancel(order.getStatus())) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", "Không thể hủy đơn ở trạng thái hiện tại"));
+                    .body(Map.of("message", "Chỉ có thể hủy đơn khi đơn đang chờ xác nhận hoặc chờ thanh toán"));
         }
 
         for (OrderItem item : order.getItems()) {
@@ -198,7 +212,7 @@ public class OrdersController {
         }
         orderStatusService.changeStatus(order, "cancelled", "customer:" + principal.getUserId(), "Khách hủy đơn");
         order = orderRepository.save(order);
-        return ResponseEntity.ok(OrderDto.fromEntity(order));
+        return ResponseEntity.ok(toOrderDto(order));
     }
 
     @GetMapping
@@ -218,7 +232,7 @@ public class OrdersController {
                         status != null && !status.isBlank() ? status.trim() : null,
                         PageRequest.of(page, size, Sort.by(direction, "createdAt")))
                 .getContent().stream()
-                .map(OrderDto::fromEntity)
+                .map(this::toOrderDto)
                 .toList();
         return ResponseEntity.ok(orders);
     }
@@ -239,7 +253,7 @@ public class OrdersController {
         if (!order.getUser().getId().equals(principal.getUserId())) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(OrderDto.fromEntity(order));
+        return ResponseEntity.ok(toOrderDto(order));
     }
 
 

@@ -135,28 +135,36 @@ public class AdminOrdersController {
 
     @PatchMapping("/{id}/status")
     @Transactional
-    public ResponseEntity<AdminOrderDto> updateOrderStatus(
+    public ResponseEntity<?> updateOrderStatus(
             @PathVariable Long id,
             @RequestBody UpdateAdminOrderStatusRequest req) {
         return orderRepository.findById(id).map(o -> {
-            String oldStatus = orderStatusService.normalize(o.getStatus());
-            String newStatus = orderStatusService.normalize(req.getStatus());
-            orderStatusService.validateStatus(newStatus);
+            try {
+                String oldStatus = orderStatusService.normalize(o.getStatus());
+                String newStatus = orderStatusService.normalize(req.getStatus());
+                orderStatusService.validateStatus(newStatus);
+                orderStatusService.validateAdminTransition(oldStatus, newStatus);
 
-            if (!"cancelled".equals(oldStatus) && "cancelled".equals(newStatus)) {
-                for (OrderItem item : o.getItems()) {
-                    Product p = item.getProduct();
-                    if (p != null) {
-                        int stock = p.getStock() != null ? p.getStock() : 0;
-                        p.setStock(stock + (item.getQuantity() != null ? item.getQuantity() : 0));
-                        productRepository.save(p);
+                boolean restock = !"cancelled".equals(oldStatus)
+                        && !"rejected".equals(oldStatus)
+                        && ("cancelled".equals(newStatus) || "rejected".equals(newStatus));
+                if (restock) {
+                    for (OrderItem item : o.getItems()) {
+                        Product p = item.getProduct();
+                        if (p != null) {
+                            int stock = p.getStock() != null ? p.getStock() : 0;
+                            p.setStock(stock + (item.getQuantity() != null ? item.getQuantity() : 0));
+                            productRepository.save(p);
+                        }
                     }
                 }
-            }
 
-            orderStatusService.changeStatus(o, newStatus, "admin", "Admin cập nhật trạng thái đơn");
-            Order saved = orderRepository.save(o);
-            return ResponseEntity.ok(mapOrder(saved));
+                orderStatusService.changeStatus(o, newStatus, "admin", "Admin cập nhật trạng thái đơn");
+                Order saved = orderRepository.save(o);
+                return ResponseEntity.ok(mapOrder(saved));
+            } catch (IllegalArgumentException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+            }
         }).orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 }

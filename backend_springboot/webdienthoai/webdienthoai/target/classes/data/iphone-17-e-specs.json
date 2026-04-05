@@ -1,0 +1,102 @@
+{
+  "manHinh": {
+    "kichThuocManHinh": "6.1 inches",
+    "congNgheManHinh": "Super Retina XDR",
+    "doPhanGiai": "2532 x 1170 pixels",
+    "tinhNangManHinh": [
+      "HDR",
+      "460 ppi",
+      "True Tone",
+      "Dải màu rộng (P3)",
+      "Haptic Touch",
+      "Tỷ lệ tương phản 2.000.000:1",
+      "Độ sáng 800 nit (tiêu chuẩn)",
+      "Độ sáng đỉnh: 1200 nit (HDR)"
+    ],
+    "tanSoQuet": "120Hz",
+    "kieuManHinh": "Tai thỏ"
+  },
+  "cameraSau": {
+    "cameraChinh": "48MP, ƒ/1.6",
+    "telephoto": "Telephoto 2x: 12MP, ƒ/1.6",
+    "quayVideo": [
+      "4K Dolby Vision 24/25/30/60 fps",
+      "1080p Dolby Vision 25/30/60 fps",
+      "720p Dolby Vision 30 fps"
+    ],
+    "tinhNangCamera": [
+      "Độ thu phóng kỹ thuật số lên đến 10x",
+      "Flash True Tone",
+      "Photonic Engine",
+      "Deep Fusion",
+      "Smart HDR 5",
+      "Ảnh chân dung",
+      "Ánh sáng chân dung (6 chế độ)",
+      "Chụp đêm",
+      "Phong Cách Nhiếp Ảnh",
+      "Chụp toàn cảnh Panorama"
+    ]
+  },
+  "cameraTruoc": {
+    "cameraTruoc": "12MP, ƒ/1.9",
+    "quayVideoTruoc": [
+      "4K Dolby Vision 24/25/30/60 fps",
+      "1080p Dolby Vision 25/30/60 fps"
+    ]
+  },
+  "viXuLyDoHoa": {
+    "chipset": "Apple A19",
+    "gpu": "GPU 4 lõi với Neural Accelerators",
+    "loaiCpu": "CPU 6 lõi: 2 lõi hiệu năng, 4 lõi tiết kiệm điện"
+  },
+  "giaoTiepKetNoi": {
+    "nfc": "Có",
+    "sim": "2 SIM (nano‑SIM và eSIM)",
+    "mang": "5G",
+    "gps": "GPS, GLONASS, Galileo, QZSS, BeiDou và NavIC",
+    "wifi": "Wi‑Fi 6 (802.11ax) với 2x2 MIMO",
+    "bluetooth": "5.3"
+  },
+  "ramLuuTru": {
+    "boNhoTrong": "256 GB"
+  },
+  "pinSac": {
+    "pin": "Xem video: 26 giờ, Xem video trực tuyến: 21 giờ",
+    "congNgheSac": [
+      "Sạc không dây MagSafe 25W",
+      "Sạc không dây Qi2 25W"
+    ],
+    "congSac": "USB Type-C"
+  },
+  "tinhNangKhac": {
+    "heDieuHanh": "iOS 26"
+  },
+  "kichThuocTrongLuong": {
+    "kichThuoc": "146,7 x 71,5 x 7,8 mm",
+    "trongLuong": "170 g"
+  },
+  "thietKe": {
+    "chatLieuMatLung": "Kính",
+    "chatLieuKhungVien": "Nhôm"
+  },
+  "thongSoKhac": {
+    "khangNuocBui": "IP68 (Chống nước tối đa 6m trong 30 phút)",
+    "congNgheTienIch": [
+      "Apple Intelligence",
+      "Siri mới",
+      "SOS khẩn cấp",
+      "Phát hiện va chạm",
+      "Face ID"
+    ]
+  },
+  "tienIchKhac": {
+    "tienIchKhac": [
+      "FaceTime HD 1080p",
+      "SharePlay",
+      "AirPlay 4K HDR"
+    ],
+    "congNgheAmThanh": ["Âm thanh không gian", "Thu âm stereo"],
+    "camBien": "Cảm biến gia tốc, Cảm biến tiệm cận, Cảm biến ánh sáng, Con quay hồi chuyển, Cảm biến áp kế",
+    "tinhNangDacBiet": ["Hỗ trợ 5G", "Sạc không dây", "Nhận diện khuôn mặt", "Kháng nước, kháng bụi", "Điện thoại AI"]
+  }
+}

@@ -7,7 +7,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -21,9 +23,14 @@ class OrderStatusServiceTests {
         OrderStatusService service = new OrderStatusService(repo);
         service.validateStatus("pending");
         service.validateStatus("paid");
+        service.validateStatus("confirmed");
+        service.validateStatus("processing");
+        service.validateStatus("shipped");
         service.validateStatus("shipping");
+        service.validateStatus("delivered");
         service.validateStatus("completed");
         service.validateStatus("cancelled");
+        service.validateStatus("rejected");
     }
 
     @Test
@@ -47,5 +54,23 @@ class OrderStatusServiceTests {
 
         assertEquals("paid", order.getStatus());
         verify(repo, times(1)).save(ArgumentMatchers.any(OrderStatusAudit.class));
+    }
+
+    @Test
+    void shouldValidateAdminTransition() {
+        OrderStatusAuditRepository repo = mock(OrderStatusAuditRepository.class);
+        OrderStatusService service = new OrderStatusService(repo);
+        service.validateAdminTransition("pending", "confirmed");
+        assertThrows(IllegalArgumentException.class, () -> service.validateAdminTransition("pending", "shipped"));
+    }
+
+    @Test
+    void canCustomerCancelOnlyEarlyStages() {
+        OrderStatusAuditRepository repo = mock(OrderStatusAuditRepository.class);
+        OrderStatusService service = new OrderStatusService(repo);
+        assertTrue(service.canCustomerCancel("pending"));
+        assertTrue(service.canCustomerCancel("pending_payment"));
+        assertFalse(service.canCustomerCancel("confirmed"));
+        assertFalse(service.canCustomerCancel("paid"));
     }
 }

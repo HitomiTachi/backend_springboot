@@ -1,6 +1,7 @@
 package com.example.webdienthoai.dto;
 
 import com.example.webdienthoai.entity.Order;
+import com.example.webdienthoai.entity.Shipment;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -28,6 +29,8 @@ public class OrderDto {
     private String notes;
     private String status;
     private Instant createdAt;
+    /** Thông tin vận chuyển (3PL); null nếu chưa tạo. */
+    private ShipmentDto shipment;
 
     @Data
     @NoArgsConstructor
@@ -44,6 +47,10 @@ public class OrderDto {
     }
 
     public static OrderDto fromEntity(Order o) {
+        return fromEntity(o, null);
+    }
+
+    public static OrderDto fromEntity(Order o, Shipment shipment) {
         if (o == null) return null;
         List<OrderItemDto> itemDtos = o.getItems().stream()
                 .map(item -> new OrderItemDto(
@@ -69,6 +76,7 @@ public class OrderDto {
             .notes(o.getNotes())
                 .status(o.getStatus())
                 .createdAt(o.getCreatedAt())
+                .shipment(ShipmentDto.fromEntity(shipment))
                 .build();
     }
 }
