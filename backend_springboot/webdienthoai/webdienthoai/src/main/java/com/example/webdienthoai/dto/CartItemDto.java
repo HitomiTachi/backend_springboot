@@ -23,6 +23,8 @@ public class CartItemDto {
     private String variant;
     private BigDecimal priceAtAdd;
     private BigDecimal lineTotal;
+    /** Tồn kho hiện tại của sản phẩm (để FE giới hạn số lượng). */
+    private Integer stock;
 
     public static CartItemDto fromEntity(CartItem item) {
         if (item == null) return null;
@@ -52,6 +54,7 @@ public class CartItemDto {
                 .variant(variant)
                 .priceAtAdd(item.getPriceAtAdd())
                 .lineTotal(lineTotal)
+                .stock(item.getProduct() != null ? item.getProduct().getStock() : null)
                 .build();
     }
 }

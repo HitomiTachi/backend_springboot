@@ -29,6 +29,22 @@ public class CartController {
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
 
+    private static int availableStock(Product p) {
+        Integer s = p.getStock();
+        return s != null ? Math.max(0, s) : 0;
+    }
+
+    private static ResponseEntity<?> badRequestStock(Product product, int requested, int available) {
+        String name = product.getName() != null ? product.getName() : "Sản phẩm";
+        if (available <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "\"" + name + "\" đã hết hàng."));
+        }
+        return ResponseEntity.badRequest()
+                .body(Map.of("message",
+                        "\"" + name + "\" chỉ còn " + available + " trong kho (bạn đang chọn " + requested + ")."));
+    }
+
     /**
      * Lấy giỏ hàng của user hiện tại
      */
@@ -92,13 +108,21 @@ public class CartController {
         String resolvedColor = req.getSelectedColor() != null ? req.getSelectedColor() : req.getVariant();
         String resolvedStorage = req.getSelectedStorage();
 
+        int stock = availableStock(product);
         if (existingItem != null) {
-            existingItem.setQuantity(existingItem.getQuantity() + req.getQuantity());
+            int newQty = existingItem.getQuantity() + req.getQuantity();
+            if (newQty > stock) {
+                return badRequestStock(product, newQty, stock);
+            }
+            existingItem.setQuantity(newQty);
             if (resolvedColor != null) existingItem.setSelectedColor(resolvedColor);
             if (resolvedStorage != null) existingItem.setSelectedStorage(resolvedStorage);
             existingItem.setUpdatedAt(Instant.now());
             cartItemRepository.save(existingItem);
         } else {
+            if (req.getQuantity() > stock) {
+                return badRequestStock(product, req.getQuantity(), stock);
+            }
             CartItem cartItem = CartItem.builder()
                     .cart(cart)
                     .product(product)
@@ -154,6 +178,13 @@ public class CartController {
             }
             
             if (quantity != null && quantity > 0) {
+                Product p = item.getProduct();
+                if (p != null) {
+                    int stock = availableStock(p);
+                    if (quantity > stock) {
+                        return badRequestStock(p, quantity, stock);
+                    }
+                }
                 item.setQuantity(quantity);
             } else {
                 return ResponseEntity.badRequest()

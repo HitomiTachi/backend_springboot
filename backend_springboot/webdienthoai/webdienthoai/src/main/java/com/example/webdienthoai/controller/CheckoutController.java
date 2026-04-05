@@ -73,6 +73,17 @@ public class CheckoutController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("message", "Sản phẩm không tồn tại: " + item.getProductId()));
             }
+            int avail = product.getStock() != null ? Math.max(0, product.getStock()) : 0;
+            if (item.getQuantity() > avail) {
+                String name = product.getName() != null ? product.getName() : "Sản phẩm";
+                if (avail <= 0) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("message", "\"" + name + "\" đã hết hàng."));
+                }
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message",
+                                "\"" + name + "\" chỉ còn " + avail + " trong kho (trong giỏ: " + item.getQuantity() + ")."));
+            }
             BigDecimal unit = product.getPrice();
             subtotal = subtotal.add(unit.multiply(BigDecimal.valueOf(item.getQuantity())));
         }
