@@ -125,17 +125,9 @@ public class OrdersController {
                 if (itemReq.getQuantity() == null || itemReq.getQuantity() <= 0) {
                     return ResponseEntity.badRequest().body(Map.of("message", "Số lượng sản phẩm phải lớn hơn 0"));
                 }
-                if (itemReq.getPrice() == null || itemReq.getPrice().compareTo(BigDecimal.ZERO) < 0) {
-                    return ResponseEntity.badRequest().body(Map.of("message", "Giá sản phẩm không hợp lệ"));
-                }
 
                 Product product = productRepository.findByIdForUpdate(itemReq.getProductId())
                         .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại: " + itemReq.getProductId()));
-
-                if (product.getPrice().compareTo(itemReq.getPrice()) != 0) {
-                    throw new IllegalArgumentException(
-                            "Giá sản phẩm \"" + product.getName() + "\" đã thay đổi. Giá hiện tại: " + product.getPrice());
-                }
 
                 int currentStock = product.getStock() != null ? product.getStock() : 0;
                 if (currentStock < itemReq.getQuantity()) {

@@ -57,7 +57,6 @@ public class CheckoutController {
                 OrderItemRequest ir = new OrderItemRequest();
                 ir.setProductId(ci.getProduct().getId());
                 ir.setQuantity(ci.getQuantity());
-                ir.setPrice(ci.getPriceAtAdd());
                 ir.setSelectedColor(ci.getSelectedColor());
                 ir.setSelectedStorage(ci.getSelectedStorage());
                 items.add(ir);
@@ -69,20 +68,12 @@ public class CheckoutController {
             if (item.getQuantity() == null || item.getQuantity() <= 0) {
                 return ResponseEntity.badRequest().body(Map.of("message", "Số lượng sản phẩm phải lớn hơn 0"));
             }
-            if (item.getPrice() == null || item.getPrice().compareTo(BigDecimal.ZERO) < 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Giá sản phẩm không hợp lệ"));
-            }
             Product product = productRepository.findById(item.getProductId()).orElse(null);
             if (product == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("message", "Sản phẩm không tồn tại: " + item.getProductId()));
             }
             BigDecimal unit = product.getPrice();
-            if (item.getPrice().compareTo(unit) != 0) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "message",
-                        "Giá sản phẩm \"" + product.getName() + "\" đã thay đổi. Giá hiện tại: " + unit));
-            }
             subtotal = subtotal.add(unit.multiply(BigDecimal.valueOf(item.getQuantity())));
         }
 
