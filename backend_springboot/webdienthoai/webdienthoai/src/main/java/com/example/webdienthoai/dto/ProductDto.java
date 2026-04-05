@@ -23,6 +23,12 @@ public class ProductDto {
     private String categoryName;
     private Integer stock;
     private Boolean featured;
+    /** JSON string */
+    private String colors;
+    /** JSON string */
+    private String storageOptions;
+    /** JSON string */
+    private String specifications;
 
     public static ProductDto fromEntity(Product p) {
         if (p == null) return null;
@@ -37,6 +43,9 @@ public class ProductDto {
                 .categoryName(p.getCategory() != null ? p.getCategory().getName() : null)
                 .stock(p.getStock())
                 .featured(p.getFeatured() != null && p.getFeatured())
+                .colors(p.getColors())
+                .storageOptions(p.getStorageOptions())
+                .specifications(p.getSpecifications())
                 .build();
     }
 }

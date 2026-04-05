@@ -42,6 +42,11 @@ public class AdminController {
     private final CategoryRepository categoryRepository;
     private final OrderRepository orderRepository;
 
+    private static String trimJsonField(String s) {
+        if (s == null || s.isBlank()) return null;
+        return s.trim();
+    }
+
     private static String slugify(String input) {
         if (input == null) return "";
         return java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD)
@@ -233,6 +238,9 @@ public class AdminController {
                 .categoryId(req.getCategoryId())
                 .stock(req.getStock() != null ? req.getStock() : 0)
                 .featured(req.getFeatured() != null && req.getFeatured())
+                .colors(trimJsonField(req.getColors()))
+                .storageOptions(trimJsonField(req.getStorageOptions()))
+                .specifications(trimJsonField(req.getSpecifications()))
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
@@ -262,6 +270,9 @@ public class AdminController {
         }
         if (req.getStock() != null) product.setStock(req.getStock());
         if (req.getFeatured() != null) product.setFeatured(req.getFeatured());
+        if (req.getColors() != null) product.setColors(trimJsonField(req.getColors()));
+        if (req.getStorageOptions() != null) product.setStorageOptions(trimJsonField(req.getStorageOptions()));
+        if (req.getSpecifications() != null) product.setSpecifications(trimJsonField(req.getSpecifications()));
         product.setUpdatedAt(Instant.now());
         return ResponseEntity.ok(ProductDto.fromEntity(productRepository.save(product)));
     }

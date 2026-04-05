@@ -36,9 +36,12 @@ public class CreateProductRequest {
 
     private Boolean featured;
 
-    private String colors;      // JSON ["đen", "trắng", ...]
+    /** JSON: [{ "name": "Đen", "hex": "#1d1d1f" }, ...] hoặc legacy ["đen","trắng"] (FE map sang name + hex mặc định) */
+    private String colors;
 
-    private String storageOptions;  // JSON [{"capacity": "256GB", "price": 19900000}, ...]
+    /** JSON: ["128GB","256GB"] hoặc legacy [{ "capacity": "256GB", "price": ... }] */
+    private String storageOptions;
 
-    private String specifications;  // JSON thông số kỹ thuật
+    /** JSON object thông số kỹ thuật (sections giống mock trên ProductDetail) */
+    private String specifications;
 }

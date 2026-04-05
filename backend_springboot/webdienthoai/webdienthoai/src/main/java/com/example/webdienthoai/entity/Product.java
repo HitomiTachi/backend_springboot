@@ -53,6 +53,18 @@ public class Product {
 
     private Boolean featured;
 
+    /** JSON: [{ "name": "Đen", "hex": "#1d1d1f" }, ...] */
+    @Column(columnDefinition = "TEXT")
+    private String colors;
+
+    /** JSON: ["128GB","256GB"] hoặc legacy [{ "capacity": "256GB", "price": ... }] */
+    @Column(columnDefinition = "TEXT")
+    private String storageOptions;
+
+    /** JSON object thông số kỹ thuật (cấu trúc lồng như FE ProductDetail) */
+    @Column(columnDefinition = "TEXT")
+    private String specifications;
+
     @Column(updatable = false)
     private Instant createdAt;
 

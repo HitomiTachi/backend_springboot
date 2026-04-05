@@ -42,6 +42,11 @@ public class ProductsController {
         return normalized;
     }
 
+    private static String trimToNull(String s) {
+        if (s == null || s.isBlank()) return null;
+        return s.trim();
+    }
+
     private String buildUniqueSlug(String preferred, Long currentProductId) {
         String base = slugify(preferred);
         if (base.isBlank()) {
@@ -133,6 +138,9 @@ public class ProductsController {
                 .categoryId(req.getCategoryId())
                 .stock(req.getStock() != null ? req.getStock() : 0)
                 .featured(req.getFeatured() != null && req.getFeatured())
+                .colors(trimToNull(req.getColors()))
+                .storageOptions(trimToNull(req.getStorageOptions()))
+                .specifications(trimToNull(req.getSpecifications()))
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
@@ -171,6 +179,9 @@ public class ProductsController {
         }
         if (req.getStock() != null) product.setStock(req.getStock());
         if (req.getFeatured() != null) product.setFeatured(req.getFeatured());
+        if (req.getColors() != null) product.setColors(trimToNull(req.getColors()));
+        if (req.getStorageOptions() != null) product.setStorageOptions(trimToNull(req.getStorageOptions()));
+        if (req.getSpecifications() != null) product.setSpecifications(trimToNull(req.getSpecifications()));
         product.setUpdatedAt(Instant.now());
 
         product = productRepository.save(product);
