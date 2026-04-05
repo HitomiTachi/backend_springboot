@@ -87,6 +87,7 @@ public class AdminOrdersController {
                 .totalPrice(o.getTotalPrice())
                 .paymentMethod(o.getPaymentMethod())
                 .notes(o.getNotes())
+                .couponCode(o.getCouponCode())
                 .status(o.getStatus())
                 .createdAt(o.getCreatedAt())
                 .build();

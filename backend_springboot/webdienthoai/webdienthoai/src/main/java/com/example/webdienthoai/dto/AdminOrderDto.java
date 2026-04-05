@@ -27,6 +27,7 @@ public class AdminOrderDto {
 
     private String paymentMethod;
     private String notes;
+    private String couponCode;
     private String status;
 
     private Instant createdAt;

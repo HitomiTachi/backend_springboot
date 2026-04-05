@@ -8,6 +8,8 @@ import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.repository.UserRepository;
 import com.example.webdienthoai.repository.CartRepository;
 import com.example.webdienthoai.repository.ShipmentRepository;
+import com.example.webdienthoai.repository.OrderStatusAuditRepository;
+import com.example.webdienthoai.repository.ReturnRequestRepository;
 
 import com.example.webdienthoai.security.UserPrincipal;
 import com.example.webdienthoai.service.CouponDiscountService;
@@ -77,6 +79,8 @@ public class OrdersController {
     private final CouponDiscountService couponDiscountService;
 
     private final OrderStatusService orderStatusService;
+    private final OrderStatusAuditRepository orderStatusAuditRepository;
+    private final ReturnRequestRepository returnRequestRepository;
 
     private OrderDto toOrderDto(Order order) {
         if (order == null || order.getId() == null) {
@@ -329,6 +333,69 @@ public class OrdersController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(toOrderDto(order));
+    }
+
+    @GetMapping("/{id}/status-history")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getMyOrderStatusHistory(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null || order.getUser() == null || !order.getUser().getId().equals(principal.getUserId())) {
+            return ResponseEntity.notFound().build();
+        }
+        List<OrderStatusHistoryDto> items = orderStatusAuditRepository.findByOrderIdOrderByChangedAtDesc(id)
+                .stream()
+                .map(OrderStatusHistoryDto::fromEntity)
+                .toList();
+        return ResponseEntity.ok(Map.of("items", items));
+    }
+
+    @GetMapping("/{id}/returns")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getMyOrderReturns(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null || order.getUser() == null || !order.getUser().getId().equals(principal.getUserId())) {
+            return ResponseEntity.notFound().build();
+        }
+        List<ReturnRequestDto> items = returnRequestRepository.findByOrderIdOrderByCreatedAtDesc(id)
+                .stream()
+                .map(ReturnRequestDto::fromEntity)
+                .toList();
+        return ResponseEntity.ok(Map.of("items", items));
+    }
+
+    @PostMapping("/{id}/returns")
+    @Transactional
+    public ResponseEntity<?> createMyOrderReturn(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestBody CreateReturnRequest req) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Vui lòng đăng nhập"));
+        }
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null || order.getUser() == null || !order.getUser().getId().equals(principal.getUserId())) {
+            return ResponseEntity.notFound().build();
+        }
+        ReturnRequest rr = ReturnRequest.builder()
+                .orderId(id)
+                .status("requested")
+                .reason(req.getReason())
+                .refundAmount(req.getRefundAmount())
+                .note(req.getNote())
+                .restocked(false)
+                .build();
+        rr = returnRequestRepository.save(rr);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ReturnRequestDto.fromEntity(rr));
     }
 
 
