@@ -6,6 +6,7 @@ import com.example.webdienthoai.entity.Category;
 import com.example.webdienthoai.entity.Product;
 import com.example.webdienthoai.repository.CategoryRepository;
 import com.example.webdienthoai.repository.ProductRepository;
+import com.example.webdienthoai.service.ProductSlugService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -19,7 +20,6 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Locale;
 import java.util.stream.Collectors;
 
 @RestController
@@ -29,38 +29,11 @@ public class ProductsController {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
-
-    private static String slugify(String input) {
-        if (input == null) return "";
-        String normalized = java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "")
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9\\s-]", "")
-                .trim()
-                .replaceAll("\\s+", "-")
-                .replaceAll("-{2,}", "-");
-        return normalized;
-    }
+    private final ProductSlugService productSlugService;
 
     private static String trimToNull(String s) {
         if (s == null || s.isBlank()) return null;
         return s.trim();
-    }
-
-    private String buildUniqueSlug(String preferred, Long currentProductId) {
-        String base = slugify(preferred);
-        if (base.isBlank()) {
-            base = "product-" + Instant.now().toEpochMilli();
-        }
-        String candidate = base;
-        int seq = 1;
-        while (true) {
-            var existed = productRepository.findBySlugIgnoreCase(candidate).orElse(null);
-            if (existed == null || (currentProductId != null && existed.getId().equals(currentProductId))) {
-                return candidate;
-            }
-            candidate = base + "-" + seq++;
-        }
     }
 
     @GetMapping
@@ -130,7 +103,8 @@ public class ProductsController {
 
         Product product = Product.builder()
                 .name(req.getName())
-                .slug(buildUniqueSlug(req.getSlug() != null && !req.getSlug().isBlank() ? req.getSlug() : req.getName(), null))
+                .slug(productSlugService.buildUniqueSlug(
+                        req.getSlug() != null && !req.getSlug().isBlank() ? req.getSlug() : req.getName(), null))
                 .description(req.getDescription())
                 .image(req.getImage())
                 .price(req.getPrice())
@@ -163,7 +137,7 @@ public class ProductsController {
         if (req.getName() != null) product.setName(req.getName());
         if (req.getSlug() != null || req.getName() != null) {
             String preferred = (req.getSlug() != null && !req.getSlug().isBlank()) ? req.getSlug() : product.getName();
-            product.setSlug(buildUniqueSlug(preferred, product.getId()));
+            product.setSlug(productSlugService.buildUniqueSlug(preferred, product.getId()));
         }
         if (req.getDescription() != null) product.setDescription(req.getDescription());
         if (req.getImage() != null) product.setImage(req.getImage());

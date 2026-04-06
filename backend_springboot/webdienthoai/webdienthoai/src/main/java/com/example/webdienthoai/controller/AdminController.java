@@ -17,6 +17,7 @@ import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.repository.UserRepository;
 import com.example.webdienthoai.security.UserPrincipal;
 import com.example.webdienthoai.service.ProductPriceAuditService;
+import com.example.webdienthoai.service.ProductSlugService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -48,6 +49,7 @@ public class AdminController {
     private final OrderRepository orderRepository;
     private final ProductPriceAuditService productPriceAuditService;
     private final ProductPriceAuditRepository productPriceAuditRepository;
+    private final ProductSlugService productSlugService;
 
     private static String trimJsonField(String s) {
         if (s == null || s.isBlank()) return null;
@@ -255,6 +257,8 @@ public class AdminController {
         }
         Product product = Product.builder()
                 .name(req.getName())
+                .slug(productSlugService.buildUniqueSlug(
+                        req.getSlug() != null && !req.getSlug().isBlank() ? req.getSlug() : req.getName(), null))
                 .description(req.getDescription())
                 .image(req.getImage())
                 .price(req.getPrice())
@@ -286,6 +290,10 @@ public class AdminController {
 
         BigDecimal oldPrice = product.getPrice();
         if (req.getName() != null) product.setName(req.getName());
+        if (req.getSlug() != null || req.getName() != null) {
+            String preferred = (req.getSlug() != null && !req.getSlug().isBlank()) ? req.getSlug() : product.getName();
+            product.setSlug(productSlugService.buildUniqueSlug(preferred, product.getId()));
+        }
         if (req.getDescription() != null) product.setDescription(req.getDescription());
         if (req.getImage() != null) product.setImage(req.getImage());
         if (req.getPrice() != null) product.setPrice(req.getPrice());

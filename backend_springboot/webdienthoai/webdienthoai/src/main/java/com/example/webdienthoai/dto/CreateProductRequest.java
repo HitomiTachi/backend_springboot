@@ -16,10 +16,7 @@ public class CreateProductRequest {
     @jakarta.validation.constraints.NotBlank(message = "Tên sản phẩm không được để trống")
     private String name;
 
-    /**
-     * Hiện tại FE/BE chưa lưu `slug` trong entity `Product`, nên chỉ coi là optional (chống lỗi 400 validation).
-     * Nếu sau này thêm cột `slug` + migration thì có thể đưa về bắt buộc.
-     */
+    /** Tuỳ chọn: nếu trống thì slug sinh từ {@link #name} (admin + API sản phẩm). */
     private String slug;
 
     private String description;
