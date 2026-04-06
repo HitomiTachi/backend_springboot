@@ -10,6 +10,8 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -35,12 +37,24 @@ public class AiController {
 
     private static final String SYSTEM_PROMPT =
         "Bạn là chuyên gia viết nội dung sản phẩm cho cửa hàng điện tử TechHome (Việt Nam). " +
-        "Khi nhận được tên hoặc từ khóa sản phẩm, hãy trả về JSON với cấu trúc sau (KHÔNG markdown, CHỈ JSON thuần):\n" +
+        "Khi nhận được tên hoặc từ khóa sản phẩm, hãy trả về JSON với cấu trúc sau (KHÔNG markdown, CHỈ JSON thuần). " +
+        "suggestedPrice là số (VNĐ, số nguyên). suggestedStock là số nguyên tồn kho gợi ý (0–1000000). " +
+        "colors: mảng object { \"name\": \"Tên màu\", \"hex\": \"#RRGGBB\" } (hex tuỳ chọn, đúng 6 ký tự hex sau #). " +
+        "storageOptions: mảng chuỗi ví dụ [\"128GB\",\"256GB\"]. " +
+        "specifications: object lồng — mỗi key là nhóm tiếng Việt (Màn hình, Camera sau, Camera trước, Hiệu năng & bộ nhớ, Pin & sạc, Kết nối, Thiết kế…), " +
+        "value là object { \"Nhãn thông số\": \"Giá trị\" }.\n" +
         "{\n" +
         "  \"name\": \"Tên đầy đủ và chuyên nghiệp\",\n" +
         "  \"description\": \"Mô tả 3-5 câu tiếng Việt nêu bật tính năng nổi bật\",\n" +
         "  \"suggestedPrice\": 29990000,\n" +
-        "  \"categoryHint\": \"Điện thoại | Máy tính bảng | Phụ kiện | Âm thanh | Làm mát | Nhà thông minh | Khác\"\n" +
+        "  \"categoryHint\": \"Điện thoại | Máy tính bảng | Phụ kiện | Âm thanh | Làm mát | Nhà thông minh | Khác\",\n" +
+        "  \"suggestedStock\": 50,\n" +
+        "  \"colors\": [{ \"name\": \"Đen không gian\", \"hex\": \"#1d1d1f\" }],\n" +
+        "  \"storageOptions\": [\"128GB\", \"256GB\", \"512GB\"],\n" +
+        "  \"specifications\": {\n" +
+        "    \"Màn hình\": { \"Kích thước\": \"6.7 inch\", \"Công nghệ màn hình\": \"OLED\" },\n" +
+        "    \"Hiệu năng & bộ nhớ\": { \"Chip xử lý\": \"Snapdragon 8 Gen 3\", \"RAM\": \"12GB\" }\n" +
+        "  }\n" +
         "}";
 
     /** Liệt kê models khả dụng với API key hiện tại */
@@ -129,13 +143,30 @@ public class AiController {
                     continue;
                 }
 
-                return ResponseEntity.ok(Map.of(
-                    "name",           result.path("name").asText(""),
-                    "description",    result.path("description").asText(""),
-                    "suggestedPrice", result.path("suggestedPrice").asLong(0),
-                    "categoryHint",   result.path("categoryHint").asText(""),
-                    "model",          model
-                ));
+                Map<String, Object> body = new LinkedHashMap<>();
+                body.put("name", truncate(result.path("name").asText(""), 500));
+                body.put("description", truncate(result.path("description").asText(""), 12000));
+                body.put("suggestedPrice", parseSuggestedPrice(result.path("suggestedPrice")));
+                body.put("categoryHint", truncate(result.path("categoryHint").asText(""), 200));
+                body.put("model", model);
+                Integer stock = parseSuggestedStock(result.path("suggestedStock"));
+                if (stock != null) {
+                    body.put("suggestedStock", stock);
+                }
+                List<Map<String, String>> colors = parseColors(result.path("colors"));
+                if (colors != null) {
+                    body.put("colors", colors);
+                }
+                List<String> storageOpts = parseStorageOptions(result.path("storageOptions"));
+                if (storageOpts != null) {
+                    body.put("storageOptions", storageOpts);
+                }
+                Map<String, Map<String, String>> specs = sanitizeSpecifications(result.path("specifications"));
+                if (specs != null) {
+                    body.put("specifications", specs);
+                }
+
+                return ResponseEntity.ok(body);
 
             } catch (HttpClientErrorException e) {
                 int status = e.getStatusCode().value();
@@ -179,5 +210,125 @@ public class AiController {
         return geminiApiKey != null && !geminiApiKey.isBlank()
                 && !geminiApiKey.equals("PASTE_YOUR_GEMINI_API_KEY_HERE")
                 && !geminiApiKey.equals("YOUR_API_KEY");
+    }
+
+    private static String truncate(String s, int max) {
+        if (s == null) return "";
+        if (s.length() <= max) return s;
+        return s.substring(0, max);
+    }
+
+    private static long parseSuggestedPrice(JsonNode n) {
+        if (n == null || n.isMissingNode() || n.isNull()) {
+            return 0L;
+        }
+        if (n.isNumber()) {
+            return Math.round(n.doubleValue());
+        }
+        if (n.isTextual()) {
+            String t = n.asText("").replaceAll("[^0-9]", "");
+            if (t.isEmpty()) return 0L;
+            try {
+                return Long.parseLong(t);
+            } catch (NumberFormatException e) {
+                return 0L;
+            }
+        }
+        return 0L;
+    }
+
+    /** null nếu không có hoặc không hợp lệ */
+    private static Integer parseSuggestedStock(JsonNode n) {
+        if (n == null || n.isMissingNode() || n.isNull() || !n.isNumber()) {
+            return null;
+        }
+        int v = n.intValue();
+        if (v < 0) return null;
+        return Math.min(v, 1_000_000);
+    }
+
+    private static final int MAX_COLORS = 12;
+    private static final int MAX_STORAGE = 12;
+    private static final int MAX_SPEC_SECTIONS = 12;
+    private static final int MAX_SPEC_ROWS = 24;
+
+    private static List<Map<String, String>> parseColors(JsonNode arr) {
+        if (arr == null || !arr.isArray()) {
+            return null;
+        }
+        List<Map<String, String>> out = new ArrayList<>();
+        for (JsonNode item : arr) {
+            if (out.size() >= MAX_COLORS) break;
+            if (item.isObject()) {
+                String name = truncate(item.path("name").asText("").trim(), 120);
+                if (name.isEmpty()) continue;
+                String hex = item.path("hex").asText("").trim();
+                Map<String, String> row = new LinkedHashMap<>();
+                row.put("name", name);
+                if (hex.matches("#[0-9A-Fa-f]{6}")) {
+                    row.put("hex", hex);
+                }
+                out.add(row);
+            } else if (item.isTextual()) {
+                String name = truncate(item.asText("").trim(), 120);
+                if (!name.isEmpty()) {
+                    out.add(new LinkedHashMap<>(Map.of("name", name)));
+                }
+            }
+        }
+        return out.isEmpty() ? null : out;
+    }
+
+    private static List<String> parseStorageOptions(JsonNode arr) {
+        if (arr == null || !arr.isArray()) {
+            return null;
+        }
+        List<String> out = new ArrayList<>();
+        for (JsonNode item : arr) {
+            if (out.size() >= MAX_STORAGE) break;
+            if (item.isTextual()) {
+                String s = truncate(item.asText("").trim(), 48);
+                if (!s.isEmpty()) {
+                    out.add(s);
+                }
+            }
+        }
+        return out.isEmpty() ? null : out;
+    }
+
+    private static Map<String, Map<String, String>> sanitizeSpecifications(JsonNode node) {
+        if (node == null || !node.isObject()) {
+            return null;
+        }
+        Map<String, Map<String, String>> out = new LinkedHashMap<>();
+        Iterator<Map.Entry<String, JsonNode>> secIt = node.fields();
+        int secCount = 0;
+        while (secIt.hasNext() && secCount < MAX_SPEC_SECTIONS) {
+            Map.Entry<String, JsonNode> e = secIt.next();
+            String secTitle = truncate(e.getKey().trim(), 100);
+            if (secTitle.isEmpty()) continue;
+            JsonNode block = e.getValue();
+            if (!block.isObject()) continue;
+            Map<String, String> inner = new LinkedHashMap<>();
+            Iterator<Map.Entry<String, JsonNode>> rowIt = block.fields();
+            int rowCount = 0;
+            while (rowIt.hasNext() && rowCount < MAX_SPEC_ROWS) {
+                Map.Entry<String, JsonNode> row = rowIt.next();
+                String lab = truncate(row.getKey().trim(), 150);
+                if (lab.isEmpty()) continue;
+                String val = "";
+                JsonNode vn = row.getValue();
+                if (vn != null && vn.isValueNode() && !vn.isNull()) {
+                    val = truncate(vn.asText(""), 4000);
+                }
+                inner.put(lab, val);
+                rowCount++;
+            }
+            if (!inner.isEmpty()) {
+                out.put(secTitle, inner);
+                secCount++;
+            }
+        }
+        return out.isEmpty() ? null : out;
     }
 }

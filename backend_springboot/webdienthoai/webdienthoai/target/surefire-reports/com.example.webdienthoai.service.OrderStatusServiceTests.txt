@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.example.webdienthoai.service.OrderStatusServiceTests
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.204 s -- in com.example.webdienthoai.service.OrderStatusServiceTests

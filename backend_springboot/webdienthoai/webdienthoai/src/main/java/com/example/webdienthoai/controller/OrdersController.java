@@ -6,14 +6,15 @@ import com.example.webdienthoai.repository.AddressRepository;
 import com.example.webdienthoai.repository.OrderRepository;
 import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.repository.UserRepository;
-import com.example.webdienthoai.repository.CartRepository;
 import com.example.webdienthoai.repository.ShipmentRepository;
 import com.example.webdienthoai.repository.OrderStatusAuditRepository;
 import com.example.webdienthoai.repository.ReturnRequestRepository;
 
 import com.example.webdienthoai.security.UserPrincipal;
+import com.example.webdienthoai.service.CartSyncService;
 import com.example.webdienthoai.service.CouponDiscountService;
 import com.example.webdienthoai.service.OrderStatusService;
+import com.example.webdienthoai.service.ProductStockService;
 import com.example.webdienthoai.service.ShippingPricing;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -73,7 +74,6 @@ public class OrdersController {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
-    private final CartRepository cartRepository;
     private final ShipmentRepository shipmentRepository;
     private final AddressRepository addressRepository;
     private final CouponDiscountService couponDiscountService;
@@ -81,6 +81,8 @@ public class OrdersController {
     private final OrderStatusService orderStatusService;
     private final OrderStatusAuditRepository orderStatusAuditRepository;
     private final ReturnRequestRepository returnRequestRepository;
+    private final ProductStockService productStockService;
+    private final CartSyncService cartSyncService;
 
     private OrderDto toOrderDto(Order order) {
         if (order == null || order.getId() == null) {
@@ -206,12 +208,7 @@ public class OrdersController {
 
             boolean vnpay = "vnpay".equalsIgnoreCase(String.valueOf(req.getPaymentMethod()));
             if (!vnpay) {
-                cartRepository.findByUserId(principal.getUserId()).ifPresent(cart -> {
-                    if (cart.getItems() != null && !cart.getItems().isEmpty()) {
-                        cart.getItems().clear();
-                        cartRepository.save(cart);
-                    }
-                });
+                cartSyncService.removeOrderedQuantitiesFromCart(principal.getUserId(), order.getItems());
             }
 
             return ResponseEntity.status(HttpStatus.CREATED).body(toOrderDto(order));
@@ -281,14 +278,7 @@ public class OrdersController {
                             "Đơn VNPay đang chờ thanh toán — không hủy từ đây. Bỏ qua phiên thanh toán hoặc liên hệ hỗ trợ."));
         }
 
-        for (OrderItem item : order.getItems()) {
-            Product p = item.getProduct();
-            if (p != null) {
-                int stock = p.getStock() != null ? p.getStock() : 0;
-                p.setStock(stock + (item.getQuantity() != null ? item.getQuantity() : 0));
-                productRepository.save(p);
-            }
-        }
+        productStockService.restockForOrderItems(order.getItems());
         orderStatusService.changeStatus(order, "cancelled", "customer:" + principal.getUserId(), "Khách hủy đơn");
         order = orderRepository.save(order);
         return ResponseEntity.ok(toOrderDto(order));

@@ -4,6 +4,7 @@ import com.example.webdienthoai.dto.CategoryDto;
 import com.example.webdienthoai.dto.CreateCategoryRequest;
 import com.example.webdienthoai.dto.CreateProductRequest;
 import com.example.webdienthoai.dto.ProductDto;
+import com.example.webdienthoai.dto.ProductPriceAuditDto;
 import com.example.webdienthoai.dto.UserDto;
 import com.example.webdienthoai.entity.Category;
 import com.example.webdienthoai.entity.Order;
@@ -11,8 +12,11 @@ import com.example.webdienthoai.entity.Product;
 import com.example.webdienthoai.entity.User;
 import com.example.webdienthoai.repository.CategoryRepository;
 import com.example.webdienthoai.repository.OrderRepository;
+import com.example.webdienthoai.repository.ProductPriceAuditRepository;
 import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.repository.UserRepository;
+import com.example.webdienthoai.security.UserPrincipal;
+import com.example.webdienthoai.service.ProductPriceAuditService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -20,6 +24,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,6 +46,8 @@ public class AdminController {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final OrderRepository orderRepository;
+    private final ProductPriceAuditService productPriceAuditService;
+    private final ProductPriceAuditRepository productPriceAuditRepository;
 
     private static String trimJsonField(String s) {
         if (s == null || s.isBlank()) return null;
@@ -222,10 +229,25 @@ public class AdminController {
                 productRepository.findAll().stream().map(ProductDto::fromEntity).toList());
     }
 
+    /** Lịch sử thay đổi giá (audit) */
+    @GetMapping("/products/{id}/price-audit")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getProductPriceAudit(@PathVariable Long id) {
+        if (!productRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+        var items = productPriceAuditRepository.findByProductIdOrderByChangedAtDesc(id).stream()
+                .map(ProductPriceAuditDto::fromEntity)
+                .toList();
+        return ResponseEntity.ok(Map.of("items", items));
+    }
+
     /** Tạo sản phẩm mới */
     @PostMapping("/products")
     @Transactional
-    public ResponseEntity<?> createProduct(@Valid @RequestBody CreateProductRequest req) {
+    public ResponseEntity<?> createProduct(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody CreateProductRequest req) {
         Category category = categoryRepository.findById(req.getCategoryId()).orElse(null);
         if (category == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -247,6 +269,8 @@ public class AdminController {
                 .updatedAt(Instant.now())
                 .build();
         product = productRepository.save(product);
+        String actor = ProductPriceAuditService.formatActor(principal);
+        productPriceAuditService.recordPriceChange(product.getId(), null, product.getPrice(), actor);
         return ResponseEntity.status(HttpStatus.CREATED).body(ProductDto.fromEntity(product));
     }
 
@@ -254,11 +278,13 @@ public class AdminController {
     @PatchMapping("/products/{id}")
     @Transactional
     public ResponseEntity<?> updateProduct(
+            @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id,
             @RequestBody CreateProductRequest req) {
         Product product = productRepository.findById(id).orElse(null);
         if (product == null) return ResponseEntity.notFound().build();
 
+        BigDecimal oldPrice = product.getPrice();
         if (req.getName() != null) product.setName(req.getName());
         if (req.getDescription() != null) product.setDescription(req.getDescription());
         if (req.getImage() != null) product.setImage(req.getImage());
@@ -276,7 +302,12 @@ public class AdminController {
         if (req.getStorageOptions() != null) product.setStorageOptions(trimJsonField(req.getStorageOptions()));
         if (req.getSpecifications() != null) product.setSpecifications(trimJsonField(req.getSpecifications()));
         product.setUpdatedAt(Instant.now());
-        return ResponseEntity.ok(ProductDto.fromEntity(productRepository.save(product)));
+        product = productRepository.save(product);
+        if (req.getPrice() != null) {
+            productPriceAuditService.recordPriceChange(
+                    product.getId(), oldPrice, product.getPrice(), ProductPriceAuditService.formatActor(principal));
+        }
+        return ResponseEntity.ok(ProductDto.fromEntity(product));
     }
 
     /** Xóa sản phẩm */

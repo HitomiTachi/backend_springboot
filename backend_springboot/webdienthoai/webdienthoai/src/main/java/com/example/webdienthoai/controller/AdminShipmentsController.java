@@ -88,6 +88,16 @@ public class AdminShipmentsController {
             }
         }
 
+        if ("shipping".equals(shipment.getStatus())) {
+            String carrier = shipment.getCarrier();
+            String tracking = shipment.getTrackingNumber();
+            if (carrier == null || carrier.isBlank() || tracking == null || tracking.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message",
+                        "Khi trạng thái vận chuyển là \"shipping\" bắt buộc có đơn vị vận chuyển (carrier) và mã vận đơn (trackingNumber)."));
+            }
+        }
+
         shipment = shipmentRepository.save(shipment);
         return ResponseEntity.ok(ShipmentDto.fromEntity(shipment));
     }

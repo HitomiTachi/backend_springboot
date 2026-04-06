@@ -6,14 +6,12 @@ import com.example.webdienthoai.dto.OrderStatusHistoryDto;
 import com.example.webdienthoai.dto.UpdateAdminOrderStatusRequest;
 import com.example.webdienthoai.entity.Address;
 import com.example.webdienthoai.entity.Order;
-import com.example.webdienthoai.entity.OrderItem;
-import com.example.webdienthoai.entity.Product;
 import com.example.webdienthoai.repository.AddressRepository;
 import com.example.webdienthoai.repository.OrderRepository;
 import com.example.webdienthoai.repository.OrderStatusAuditRepository;
-import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.security.UserPrincipal;
 import com.example.webdienthoai.service.OrderStatusService;
+import com.example.webdienthoai.service.ProductStockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -35,9 +33,9 @@ public class AdminOrdersController {
 
     private final OrderRepository orderRepository;
     private final AddressRepository addressRepository;
-    private final ProductRepository productRepository;
     private final OrderStatusAuditRepository orderStatusAuditRepository;
     private final OrderStatusService orderStatusService;
+    private final ProductStockService productStockService;
 
     private String toShippingAddressSummary(Address addr) {
         if (addr == null) return "—";
@@ -164,14 +162,7 @@ public class AdminOrdersController {
                         && !"rejected".equals(oldStatus)
                         && ("cancelled".equals(newStatus) || "rejected".equals(newStatus));
                 if (restock) {
-                    for (OrderItem item : o.getItems()) {
-                        Product p = item.getProduct();
-                        if (p != null) {
-                            int stock = p.getStock() != null ? p.getStock() : 0;
-                            p.setStock(stock + (item.getQuantity() != null ? item.getQuantity() : 0));
-                            productRepository.save(p);
-                        }
-                    }
+                    productStockService.restockForOrderItems(o.getItems());
                 }
 
                 String actor = "admin:" + principal.getUserId() + "(" + principal.getEmail() + ")";
