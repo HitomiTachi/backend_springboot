@@ -22,6 +22,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE (:categoryId IS NULL OR p.category.id = :categoryId) AND (:q IS NULL OR :q = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<Product> findByCategoryAndSearch(@Param("categoryId") Long categoryId, @Param("q") String q, Pageable pageable);
 
+    /** Lọc sản phẩm thuộc một trong các danh mục (ví dụ cha + mọi hậu duệ). */
+    @Query("SELECT p FROM Product p WHERE p.category.id IN :categoryIds AND (:q IS NULL OR :q = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<Product> findByCategoryIdInAndSearch(@Param("categoryIds") List<Long> categoryIds, @Param("q") String q, Pageable pageable);
+
     List<Product> findByFeaturedTrue();
 
     java.util.Optional<Product> findBySlugIgnoreCase(String slug);

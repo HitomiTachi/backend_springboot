@@ -20,6 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -41,11 +45,36 @@ public class ProductsController {
         return s.trim();
     }
 
+    /**
+     * id gốc + mọi danh mục con (theo parent_id), BFS trên toàn bộ bảng categories.
+     */
+    private List<Long> categoryIdsIncludingDescendants(Long rootId) {
+        List<Category> all = categoryRepository.findAll();
+        Map<Long, List<Long>> childrenByParent = new HashMap<>();
+        for (Category c : all) {
+            Long pid = c.getParentId();
+            childrenByParent.computeIfAbsent(pid, k -> new ArrayList<>()).add(c.getId());
+        }
+        List<Long> out = new ArrayList<>();
+        Deque<Long> queue = new ArrayDeque<>();
+        queue.add(rootId);
+        while (!queue.isEmpty()) {
+            Long id = queue.poll();
+            out.add(id);
+            List<Long> children = childrenByParent.get(id);
+            if (children != null) {
+                queue.addAll(children);
+            }
+        }
+        return out;
+    }
+
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<List<ProductDto>> getProducts(
             @RequestParam(required = false) Long category,
             @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "false") boolean includeDescendants,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "100") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
@@ -55,10 +84,18 @@ public class ProductsController {
         PageRequest pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
         List<Product> products;
-        if (category != null || (q != null && !q.isBlank())) {
-            products = productRepository.findByCategoryAndSearch(
-                    category, (q != null && !q.isBlank()) ? q.trim() : null,
-                    pageable).getContent();
+        String qTrimmed = (q != null && !q.isBlank()) ? q.trim() : null;
+        if (category != null || qTrimmed != null) {
+            if (category != null && includeDescendants) {
+                List<Long> ids = categoryIdsIncludingDescendants(category);
+                if (ids.isEmpty()) {
+                    products = List.of();
+                } else {
+                    products = productRepository.findByCategoryIdInAndSearch(ids, qTrimmed, pageable).getContent();
+                }
+            } else {
+                products = productRepository.findByCategoryAndSearch(category, qTrimmed, pageable).getContent();
+            }
         } else {
             products = productRepository.findAll(pageable).getContent();
         }
