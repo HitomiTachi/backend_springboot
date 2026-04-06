@@ -53,7 +53,7 @@ public class Product {
 
     private Boolean featured;
 
-    /** JSON: [{ "name": "Đen", "hex": "#1d1d1f" }, ...] */
+    /** JSON: [{ "name": "Đen" }, ...] hoặc object có thêm "hex" tuỳ chọn */
     @Column(columnDefinition = "TEXT")
     private String colors;
 

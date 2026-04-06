@@ -72,8 +72,8 @@ public class AiController {
     }
 
     @PostMapping("/generate")
-    public ResponseEntity<?> generateProduct(@RequestBody Map<String, String> body) {
-        String keyword = body.getOrDefault("keyword", "").trim();
+    public ResponseEntity<?> generateProduct(@RequestBody Map<String, String> payload) {
+        String keyword = payload.getOrDefault("keyword", "").trim();
         if (keyword.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("message", "keyword không được để trống"));
         }

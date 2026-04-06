@@ -36,7 +36,7 @@ public class CreateProductRequest {
 
     private Boolean featured;
 
-    /** JSON: [{ "name": "Đen", "hex": "#1d1d1f" }, ...] hoặc legacy ["đen","trắng"] (FE map sang name + hex mặc định) */
+    /** JSON: [{ "name": "Đen" }, ...] hoặc có thêm "hex" tuỳ chọn; legacy ["đen","trắng"] */
     private String colors;
 
     /** JSON: ["128GB","256GB"] hoặc legacy [{ "capacity": "256GB", "price": ... }] */
