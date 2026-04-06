@@ -2,10 +2,12 @@ package com.example.webdienthoai.controller;
 
 import com.example.webdienthoai.dto.CreateProductRequest;
 import com.example.webdienthoai.dto.ProductDto;
+import com.example.webdienthoai.dto.ProductRatingSummary;
 import com.example.webdienthoai.entity.Category;
 import com.example.webdienthoai.entity.Product;
 import com.example.webdienthoai.repository.CategoryRepository;
 import com.example.webdienthoai.repository.ProductRepository;
+import com.example.webdienthoai.service.ProductRatingService;
 import com.example.webdienthoai.service.ProductSlugService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -30,6 +34,7 @@ public class ProductsController {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductSlugService productSlugService;
+    private final ProductRatingService productRatingService;
 
     private static String trimToNull(String s) {
         if (s == null || s.isBlank()) return null;
@@ -58,14 +63,15 @@ public class ProductsController {
             products = productRepository.findAll(pageable).getContent();
         }
 
-        return ResponseEntity.ok(products.stream().map(ProductDto::fromEntity).collect(Collectors.toList()));
+        return ResponseEntity.ok(mapProductsWithRatings(products));
     }
 
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     public ResponseEntity<ProductDto> getById(@PathVariable Long id) {
         return productRepository.findById(id)
-                .map(ProductDto::fromEntity)
+                .map(p -> ProductDto.fromEntity(p, productRatingService.summariesByProductIds(
+                        Set.of(p.getId())).get(p.getId())))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -77,7 +83,8 @@ public class ProductsController {
             return ResponseEntity.notFound().build();
         }
         return productRepository.findBySlugIgnoreCase(slug.trim())
-                .map(ProductDto::fromEntity)
+                .map(p -> ProductDto.fromEntity(p, productRatingService.summariesByProductIds(
+                        Set.of(p.getId())).get(p.getId())))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -85,10 +92,19 @@ public class ProductsController {
     @GetMapping("/featured")
     @Transactional(readOnly = true)
     public ResponseEntity<List<ProductDto>> getFeatured() {
-        return ResponseEntity.ok(
-                productRepository.findByFeaturedTrue().stream()
-                        .map(ProductDto::fromEntity)
-                        .collect(Collectors.toList()));
+        List<Product> featured = productRepository.findByFeaturedTrue();
+        return ResponseEntity.ok(mapProductsWithRatings(featured));
+    }
+
+    private List<ProductDto> mapProductsWithRatings(List<Product> products) {
+        Set<Long> ids = products.stream()
+                .map(Product::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, ProductRatingSummary> summaryMap = productRatingService.summariesByProductIds(ids);
+        return products.stream()
+                .map(p -> ProductDto.fromEntity(p, summaryMap.get(p.getId())))
+                .collect(Collectors.toList());
     }
 
     @PostMapping

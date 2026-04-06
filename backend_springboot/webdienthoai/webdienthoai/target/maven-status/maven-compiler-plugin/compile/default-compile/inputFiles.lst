@@ -23,6 +23,7 @@ E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\controller\CheckoutController.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\controller\HealthController.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\controller\OrdersController.java
+E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\controller\ProductRatingController.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\controller\ProductsController.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\controller\ProfileController.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\controller\UploadController.java
@@ -56,6 +57,8 @@ E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\OrderStatusHistoryDto.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\ProductDto.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\ProductPriceAuditDto.java
+E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\ProductRatingResponseDto.java
+E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\ProductRatingSummary.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\RegisterRequest.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\ResetPasswordRequest.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\ReturnRequestDto.java
@@ -66,6 +69,7 @@ E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\UpdateReturnStatusRequest.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\UploadPresignRequest.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\UploadPresignResponse.java
+E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\UpsertProductRatingRequest.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\UpsertShipmentRequest.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\UserDto.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\dto\VnpayCreatePaymentRequest.java
@@ -82,6 +86,7 @@ E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\entity\OrderStatusAudit.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\entity\Product.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\entity\ProductPriceAudit.java
+E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\entity\ProductRating.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\entity\ReturnRequest.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\entity\Shipment.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\entity\User.java
@@ -96,9 +101,11 @@ E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\repository\CategoryRepository.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\repository\CouponRepository.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\repository\InventoryIdempotencyRecordRepository.java
+E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\repository\OrderItemRepository.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\repository\OrderRepository.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\repository\OrderStatusAuditRepository.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\repository\ProductPriceAuditRepository.java
+E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\repository\ProductRatingRepository.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\repository\ProductRepository.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\repository\ReturnRequestRepository.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\repository\ShipmentRepository.java
@@ -117,6 +124,7 @@ E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\service\OrderStatusService.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\service\ProductExcelImportService.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\service\ProductPriceAuditService.java
+E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\service\ProductRatingService.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\service\ProductSlugService.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\service\ProductStockService.java
 E:\webbandienthoai\SpringBoot\backend_springboot\backend_springboot\webdienthoai\webdienthoai\src\main\java\com\example\webdienthoai\service\R2PresignService.java

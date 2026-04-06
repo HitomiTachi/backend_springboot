@@ -24,8 +24,19 @@ public class WishlistItemDto {
     private Integer reviews;
 
     public static WishlistItemDto fromEntity(WishlistItem wi) {
+        return fromEntity(wi, null);
+    }
+
+    public static WishlistItemDto fromEntity(WishlistItem wi, ProductRatingSummary summary) {
         if (wi == null) return null;
         Product p = wi.getProduct();
+        double r = 0.0;
+        int rev = 0;
+        if (summary != null && summary.count() > 0) {
+            r = summary.average();
+            long c = summary.count();
+            rev = c > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) c;
+        }
         return WishlistItemDto.builder()
                 .id(wi.getId())
                 .productId(p != null ? String.valueOf(p.getId()) : null)
@@ -33,8 +44,8 @@ public class WishlistItemDto {
                 .image(p != null ? p.getImage() : null)
                 .price(p != null ? p.getPrice() : null)
                 .oldPrice(null)
-                .rating(0.0)
-                .reviews(0)
+                .rating(r)
+                .reviews(rev)
                 .build();
     }
 }

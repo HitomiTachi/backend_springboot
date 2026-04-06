@@ -38,6 +38,8 @@ public class OrderDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class OrderItemDto {
+        /** Id dòng đơn — dùng cho API đánh giá theo lần mua. */
+        private Long id;
         private Long productId;
         private String productName;
         private String productImage;
@@ -56,6 +58,7 @@ public class OrderDto {
         if (o == null) return null;
         List<OrderItemDto> itemDtos = o.getItems().stream()
                 .map(item -> new OrderItemDto(
+                        item.getId(),
                 item.getProduct() != null ? item.getProduct().getId() : null,
                 item.getProductName() != null ? item.getProductName() : (item.getProduct() != null ? item.getProduct().getName() : null),
                 item.getProductImage() != null ? item.getProductImage() : (item.getProduct() != null ? item.getProduct().getImage() : null),
