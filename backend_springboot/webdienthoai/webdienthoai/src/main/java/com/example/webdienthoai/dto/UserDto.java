@@ -24,6 +24,7 @@ public class UserDto {
     private String avatarUrl;
     private AddressDto defaultAddress;
     private Instant passwordChangedAt;
+    private Instant emailVerifiedAt;
     private Instant createdAt;
 
     public static UserDto fromEntity(User u) {
@@ -38,6 +39,7 @@ public class UserDto {
                 .dateOfBirth(u.getDateOfBirth())
                 .avatarUrl(u.getAvatarUrl())
                 .passwordChangedAt(u.getPasswordChangedAt())
+                .emailVerifiedAt(u.getEmailVerifiedAt())
                 .createdAt(u.getCreatedAt())
                 .build();
     }

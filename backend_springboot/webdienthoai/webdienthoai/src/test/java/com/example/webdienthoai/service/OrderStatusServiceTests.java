@@ -17,10 +17,14 @@ import static org.mockito.Mockito.when;
 
 class OrderStatusServiceTests {
 
+    private static OrderStatusService service(OrderStatusAuditRepository repo) {
+        return new OrderStatusService(repo, mock(OrderMailService.class));
+    }
+
     @Test
     void shouldValidateAllowedStatuses() {
         OrderStatusAuditRepository repo = mock(OrderStatusAuditRepository.class);
-        OrderStatusService service = new OrderStatusService(repo);
+        OrderStatusService service = service(repo);
         service.validateStatus("pending");
         service.validateStatus("paid");
         service.validateStatus("confirmed");
@@ -36,7 +40,7 @@ class OrderStatusServiceTests {
     @Test
     void shouldRejectInvalidStatus() {
         OrderStatusAuditRepository repo = mock(OrderStatusAuditRepository.class);
-        OrderStatusService service = new OrderStatusService(repo);
+        OrderStatusService service = service(repo);
         assertThrows(IllegalArgumentException.class, () -> service.validateStatus("unknown"));
     }
 
@@ -44,7 +48,7 @@ class OrderStatusServiceTests {
     void shouldPersistAuditWhenStatusChanges() {
         OrderStatusAuditRepository repo = mock(OrderStatusAuditRepository.class);
         when(repo.save(ArgumentMatchers.any(OrderStatusAudit.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        OrderStatusService service = new OrderStatusService(repo);
+        OrderStatusService service = service(repo);
 
         Order order = new Order();
         order.setId(10L);
@@ -59,7 +63,7 @@ class OrderStatusServiceTests {
     @Test
     void shouldValidateAdminTransition() {
         OrderStatusAuditRepository repo = mock(OrderStatusAuditRepository.class);
-        OrderStatusService service = new OrderStatusService(repo);
+        OrderStatusService service = service(repo);
         service.validateAdminTransition("pending", "confirmed");
         assertThrows(IllegalArgumentException.class, () -> service.validateAdminTransition("pending", "shipped"));
     }
@@ -67,7 +71,7 @@ class OrderStatusServiceTests {
     @Test
     void canCustomerCancelOnlyEarlyStages() {
         OrderStatusAuditRepository repo = mock(OrderStatusAuditRepository.class);
-        OrderStatusService service = new OrderStatusService(repo);
+        OrderStatusService service = service(repo);
         assertTrue(service.canCustomerCancel("pending"));
         assertTrue(service.canCustomerCancel("pending_payment"));
         assertFalse(service.canCustomerCancel("confirmed"));

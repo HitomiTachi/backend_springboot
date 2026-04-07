@@ -4,6 +4,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties({ VnpayProperties.class, AppUrlProperties.class })
+@EnableConfigurationProperties({ VnpayProperties.class, AppUrlProperties.class, AppMailProperties.class })
 public class PaymentConfig {
 }

@@ -14,6 +14,7 @@ import com.example.webdienthoai.security.UserPrincipal;
 import com.example.webdienthoai.service.CartSyncService;
 import com.example.webdienthoai.service.CouponDiscountService;
 import com.example.webdienthoai.service.OrderStatusService;
+import com.example.webdienthoai.service.OrderMailService;
 import com.example.webdienthoai.service.ProductStockService;
 import com.example.webdienthoai.service.ShippingPricing;
 import jakarta.validation.Valid;
@@ -83,6 +84,7 @@ public class OrdersController {
     private final ReturnRequestRepository returnRequestRepository;
     private final ProductStockService productStockService;
     private final CartSyncService cartSyncService;
+    private final OrderMailService orderMailService;
 
     private OrderDto toOrderDto(Order order) {
         if (order == null || order.getId() == null) {
@@ -210,6 +212,8 @@ public class OrdersController {
             if (!vnpay) {
                 cartSyncService.removeOrderedQuantitiesFromCart(principal.getUserId(), order.getItems());
             }
+
+            orderMailService.notifyOrderCreated(order);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(toOrderDto(order));
         } catch (IllegalArgumentException ex) {

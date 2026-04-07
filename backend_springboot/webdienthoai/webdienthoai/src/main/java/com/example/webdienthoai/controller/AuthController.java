@@ -15,8 +15,12 @@ import com.example.webdienthoai.repository.UserRepository;
 import com.example.webdienthoai.security.LoginAttemptService;
 import com.example.webdienthoai.security.JwtUtil;
 import com.example.webdienthoai.security.UserPrincipal;
+import com.example.webdienthoai.service.EmailVerificationService;
+import com.example.webdienthoai.service.PasswordResetService;
+import com.example.webdienthoai.service.RegistrationEmailService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -26,12 +30,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -42,10 +46,12 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final LoginAttemptService loginAttemptService;
-    private static final long RESET_TOKEN_TTL_SECONDS = 15 * 60;
-    private static final Map<String, ResetTokenData> RESET_TOKENS = new ConcurrentHashMap<>();
+    private final PasswordResetService passwordResetService;
+    private final RegistrationEmailService registrationEmailService;
+    private final EmailVerificationService emailVerificationService;
 
-    private record ResetTokenData(Long userId, Instant expiresAt) {}
+    @Value("${app.auth.expose-reset-token:false}")
+    private boolean exposeResetTokenInResponse;
 
     /**
      * Đăng ký tài khoản mới. Email được lưu dạng chữ thường để trùng với login.
@@ -65,6 +71,7 @@ public class AuthController {
                 .passwordChangedAt(Instant.now())
                 .build();
         user = userRepository.save(user);
+        registrationEmailService.sendAfterRegistration(user);
         String token = jwtUtil.generateToken(user.getEmail(), user.getId(), user.getRole());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(AuthResponse.builder()
@@ -116,42 +123,50 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
         String email = req.getEmail() != null ? req.getEmail().trim().toLowerCase() : "";
+        String genericMessage = "Nếu email tồn tại, hướng dẫn đặt lại mật khẩu sẽ được gửi";
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
-            return ResponseEntity.ok(Map.of(
-                    "message", "Nếu email tồn tại, hướng dẫn đặt lại mật khẩu sẽ được gửi",
-                    "accepted", true
-            ));
+            return ResponseEntity.ok(Map.of("message", genericMessage, "accepted", true));
         }
-        String token = UUID.randomUUID().toString();
-        RESET_TOKENS.put(token, new ResetTokenData(user.getId(), Instant.now().plusSeconds(RESET_TOKEN_TTL_SECONDS)));
-        return ResponseEntity.ok(Map.of(
-                "message", "Tạo yêu cầu đặt lại mật khẩu thành công",
-                "accepted", true,
-                "resetToken", token,
-                "expiresInSeconds", RESET_TOKEN_TTL_SECONDS
-        ));
+        String plainToken = passwordResetService.createTokenSendEmail(user);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", genericMessage);
+        body.put("accepted", true);
+        if (exposeResetTokenInResponse) {
+            body.put("resetToken", plainToken);
+            body.put("expiresInSeconds", PasswordResetService.RESET_TOKEN_TTL_SECONDS);
+        }
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
-        ResetTokenData tokenData = RESET_TOKENS.get(req.getToken());
-        if (tokenData == null || Instant.now().isAfter(tokenData.expiresAt())) {
-            if (tokenData != null) {
-                RESET_TOKENS.remove(req.getToken());
-            }
-            throw new IllegalArgumentException("Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn");
-        }
-        User user = userRepository.findById(tokenData.userId()).orElse(null);
-        if (user == null) {
-            RESET_TOKENS.remove(req.getToken());
-            throw new IllegalArgumentException("Yêu cầu đặt lại mật khẩu không hợp lệ");
-        }
-        user.setPassword(passwordEncoder.encode(req.getNewPassword()));
-        user.setPasswordChangedAt(Instant.now());
-        userRepository.save(user);
-        RESET_TOKENS.remove(req.getToken());
+        passwordResetService.resetPasswordWithToken(req.getToken(), req.getNewPassword());
         return ResponseEntity.ok(Map.of("message", "Đặt lại mật khẩu thành công"));
+    }
+
+    /**
+     * Xác minh email qua token trong mail. GET ?token=
+     */
+    @GetMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestParam("token") String token) {
+        if (token == null || token.isBlank()) {
+            throw new IllegalArgumentException("Thiếu token xác minh");
+        }
+        emailVerificationService.verifyByToken(token.trim());
+        return ResponseEntity.ok(Map.of("verified", true, "message", "Email đã được xác minh"));
+    }
+
+    /**
+     * Gửi lại mail xác minh (cần đăng nhập).
+     */
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?> resendVerification(@AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null) {
+            throw new AuthUnauthorizedException("Chưa đăng nhập");
+        }
+        emailVerificationService.resendForUserId(principal.getUserId());
+        return ResponseEntity.ok(Map.of("message", "Đã gửi lại email xác minh nếu tài khoản chưa xác minh"));
     }
 
     /**

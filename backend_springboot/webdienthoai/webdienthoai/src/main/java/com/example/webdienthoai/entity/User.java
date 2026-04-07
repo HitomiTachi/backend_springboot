@@ -46,6 +46,10 @@ public class User {
     @Column(name = "password_changed_at")
     private Instant passwordChangedAt;
 
+    /** Null = chưa xác minh email (chỉ tài khoản mới sau khi bật tính năng). */
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 

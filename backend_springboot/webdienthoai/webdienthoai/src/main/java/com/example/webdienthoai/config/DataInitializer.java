@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -45,6 +46,7 @@ public class DataInitializer implements CommandLineRunner {
                             .email("admin@techhome.com")
                             .password(passwordEncoder.encode("admin123456"))
                             .role("admin")
+                            .emailVerifiedAt(Instant.now())
                             .build());
                 }
 
@@ -54,7 +56,8 @@ public class DataInitializer implements CommandLineRunner {
                     .name("Người dùng mẫu")
                     .email("user@example.com")
                     .password(passwordEncoder.encode("123456"))
-                                        .role("customer")
+                    .role("customer")
+                    .emailVerifiedAt(Instant.now())
                     .build());
         }
 

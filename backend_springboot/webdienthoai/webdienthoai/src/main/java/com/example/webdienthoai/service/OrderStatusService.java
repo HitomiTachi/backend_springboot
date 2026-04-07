@@ -46,6 +46,7 @@ public class OrderStatusService {
             Map.entry("delivered", Set.of("completed", "cancelled", "rejected")));
 
     private final OrderStatusAuditRepository orderStatusAuditRepository;
+    private final OrderMailService orderMailService;
 
     public void validateStatus(String status) {
         String normalized = normalize(status);
@@ -99,6 +100,7 @@ public class OrderStatusService {
                 .actor(actor)
                 .note(note)
                 .build());
+        orderMailService.notifyCustomerStatusChanged(order, oldStatus, normalized);
     }
 
     public String normalize(String status) {
