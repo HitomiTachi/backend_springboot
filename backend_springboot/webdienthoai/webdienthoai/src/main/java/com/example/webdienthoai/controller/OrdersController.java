@@ -14,12 +14,16 @@ import com.example.webdienthoai.security.UserPrincipal;
 import com.example.webdienthoai.service.CartSyncService;
 import com.example.webdienthoai.service.CouponDiscountService;
 import com.example.webdienthoai.service.OrderStatusService;
+import com.example.webdienthoai.service.InvoicePdfService;
 import com.example.webdienthoai.service.OrderMailService;
 import com.example.webdienthoai.service.ProductStockService;
 import com.example.webdienthoai.service.ShippingPricing;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.lowagie.text.DocumentException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -27,6 +31,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -85,6 +90,7 @@ public class OrdersController {
     private final ProductStockService productStockService;
     private final CartSyncService cartSyncService;
     private final OrderMailService orderMailService;
+    private final InvoicePdfService invoicePdfService;
 
     private OrderDto toOrderDto(Order order) {
         if (order == null || order.getId() == null) {
@@ -327,6 +333,40 @@ public class OrdersController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(toOrderDto(order));
+    }
+
+    /**
+     * PDF hóa đơn — chỉ chủ đơn (cùng logic {@link #getOrderById}).
+     */
+    @GetMapping(value = "/{id}/invoice.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> getMyOrderInvoicePdf(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Optional<Order> orderOpt = orderRepository.findById(id);
+        if (orderOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Order order = orderOpt.get();
+        if (order.getUser() == null || !order.getUser().getId().equals(principal.getUserId())) {
+            return ResponseEntity.notFound().build();
+        }
+        Address shipping = order.getShippingAddressId() != null
+                ? addressRepository.findById(order.getShippingAddressId()).orElse(null)
+                : null;
+        try {
+            byte[] pdf = invoicePdfService.buildInvoicePdf(order, shipping);
+            String filename = "hoa-don-" + id + ".pdf";
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .body(pdf);
+        } catch (IOException | DocumentException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @GetMapping("/{id}/status-history")

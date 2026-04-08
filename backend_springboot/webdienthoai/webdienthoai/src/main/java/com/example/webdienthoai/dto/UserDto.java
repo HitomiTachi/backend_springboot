@@ -18,6 +18,8 @@ public class UserDto {
     private String name;
     private String email;
     private String role;
+    private String authProvider;
+    private String providerId;
     private String phone;
     private String gender;
     private LocalDate dateOfBirth;
@@ -34,6 +36,8 @@ public class UserDto {
                 .name(u.getName())
                 .email(u.getEmail())
                 .role(u.getRole())
+                .authProvider(u.getAuthProvider())
+                .providerId(u.getProviderId())
                 .phone(u.getPhone())
                 .gender(u.getGender())
                 .dateOfBirth(u.getDateOfBirth())

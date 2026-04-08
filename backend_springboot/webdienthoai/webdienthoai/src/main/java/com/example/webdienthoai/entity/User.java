@@ -50,6 +50,13 @@ public class User {
     @Column(name = "email_verified_at")
     private Instant emailVerifiedAt;
 
+    @Column(name = "auth_provider", length = 20)
+    @Builder.Default
+    private String authProvider = "LOCAL";
+
+    @Column(name = "provider_id", length = 191)
+    private String providerId;
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 

@@ -44,9 +44,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/payments/vnpay/return", "/api/payments/vnpay/ipn").permitAll()
                         .requestMatchers("/api/categories", "/api/categories/**").permitAll()
                         .requestMatchers("/api/products", "/api/products/**").permitAll()
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/verify-email").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/verify-email", "/api/auth/google", "/api/auth/google/callback").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        /* Chat trợ lý: mọi user đã đăng nhập (customer hoặc admin), không public */
+                        .requestMatchers("/api/chat/**").authenticated()
                         .requestMatchers("/api/**").authenticated()
                         .requestMatchers("/", "/templates/**", "/css/**", "/js/**", "/error").permitAll()
                         .anyRequest().permitAll())

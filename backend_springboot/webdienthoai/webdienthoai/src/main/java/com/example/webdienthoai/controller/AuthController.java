@@ -16,6 +16,7 @@ import com.example.webdienthoai.security.LoginAttemptService;
 import com.example.webdienthoai.security.JwtUtil;
 import com.example.webdienthoai.security.UserPrincipal;
 import com.example.webdienthoai.service.EmailVerificationService;
+import com.example.webdienthoai.service.GoogleOAuthService;
 import com.example.webdienthoai.service.PasswordResetService;
 import com.example.webdienthoai.service.RegistrationEmailService;
 import jakarta.validation.Valid;
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -49,6 +52,7 @@ public class AuthController {
     private final PasswordResetService passwordResetService;
     private final RegistrationEmailService registrationEmailService;
     private final EmailVerificationService emailVerificationService;
+    private final GoogleOAuthService googleOAuthService;
 
     @Value("${app.auth.expose-reset-token:false}")
     private boolean exposeResetTokenInResponse;
@@ -67,7 +71,8 @@ public class AuthController {
                 .name(name)
                 .email(email)
                 .password(passwordEncoder.encode(req.getPassword()))
-            .role("customer")
+                .role("customer")
+                .authProvider("LOCAL")
                 .passwordChangedAt(Instant.now())
                 .build();
         user = userRepository.save(user);
@@ -96,6 +101,12 @@ public class AuthController {
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null || !passwordEncoder.matches(req.getPassword(), user.getPassword())) {
             loginAttemptService.onFailure(email);
+            if (user != null && user.getAuthProvider() != null
+                    && "GOOGLE".equalsIgnoreCase(user.getAuthProvider())) {
+                throw new BadCredentialsException(
+                        "Tài khoản này liên kết Google — mật khẩu form không dùng được. "
+                                + "Hãy đăng nhập bằng Google hoặc dùng «Quên mật khẩu» để đặt mật khẩu.");
+            }
             throw new BadCredentialsException("Email hoặc mật khẩu không đúng");
         }
         loginAttemptService.onSuccess(email);
@@ -104,6 +115,43 @@ public class AuthController {
                 .token(token)
                 .user(UserDto.fromEntity(user))
                 .build());
+    }
+
+    /**
+     * Bắt đầu OAuth Google: backend tạo state và redirect tới Google.
+     */
+    @GetMapping("/google")
+    public ResponseEntity<Void> googleLogin(
+            @RequestParam(value = "redirectUri", required = false) String redirectUri) {
+        java.net.URI location = googleOAuthService.buildGoogleAuthorizationRedirect(redirectUri);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, location.toString())
+                .build();
+    }
+
+    /**
+     * Callback từ Google: đổi code lấy profile, login/register user và redirect về frontend với token.
+     */
+    @GetMapping("/google/callback")
+    public ResponseEntity<Void> googleCallback(
+            @RequestParam(value = "code", required = false) String code,
+            @RequestParam(value = "state", required = false) String state,
+            @RequestParam(value = "error", required = false) String error,
+            @RequestParam(value = "error_description", required = false) String errorDescription) {
+        java.net.URI location;
+        if (error != null && !error.isBlank()) {
+            String message = (errorDescription != null && !errorDescription.isBlank()) ? errorDescription : error;
+            location = googleOAuthService.buildFailureRedirect(state, message);
+        } else {
+            try {
+                location = googleOAuthService.handleGoogleCallback(code, state);
+            } catch (ResponseStatusException ex) {
+                location = googleOAuthService.buildFailureRedirect(state, ex.getReason() != null ? ex.getReason() : "Đăng nhập Google thất bại");
+            }
+        }
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, location.toString())
+                .build();
     }
 
     /**

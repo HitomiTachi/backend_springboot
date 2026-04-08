@@ -7,9 +7,11 @@ import com.example.webdienthoai.repository.CategoryRepository;
 import com.example.webdienthoai.repository.ProductRepository;
 import com.example.webdienthoai.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -28,6 +30,7 @@ public class DataInitializer implements CommandLineRunner {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Environment environment;
 
     @Override
     public void run(String... args) {
@@ -48,6 +51,19 @@ public class DataInitializer implements CommandLineRunner {
                             .role("admin")
                             .emailVerifiedAt(Instant.now())
                             .build());
+                }
+
+                /*
+                 * Profile dev: luôn đặt lại mật khẩu admin mặc định.
+                 * Tránh trường hợp admin@techhome.com đã tạo qua Google OAuth (mật khẩu random) nên không đăng nhập form được.
+                 */
+                if (environment.acceptsProfiles(Profiles.of("dev"))) {
+                    userRepository.findByEmail("admin@techhome.com").ifPresent(u -> {
+                        u.setPassword(passwordEncoder.encode("admin123456"));
+                        u.setAuthProvider("LOCAL");
+                        u.setRole("admin");
+                        userRepository.save(u);
+                    });
                 }
 
                 // Tài khoản customer mẫu để test luồng người dùng.

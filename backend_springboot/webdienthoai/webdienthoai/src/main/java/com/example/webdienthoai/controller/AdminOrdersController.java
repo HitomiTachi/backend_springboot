@@ -10,18 +10,23 @@ import com.example.webdienthoai.repository.AddressRepository;
 import com.example.webdienthoai.repository.OrderRepository;
 import com.example.webdienthoai.repository.OrderStatusAuditRepository;
 import com.example.webdienthoai.security.UserPrincipal;
+import com.example.webdienthoai.service.InvoicePdfService;
 import com.example.webdienthoai.service.OrderStatusService;
 import com.example.webdienthoai.service.ProductStockService;
+import com.lowagie.text.DocumentException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +41,7 @@ public class AdminOrdersController {
     private final OrderStatusAuditRepository orderStatusAuditRepository;
     private final OrderStatusService orderStatusService;
     private final ProductStockService productStockService;
+    private final InvoicePdfService invoicePdfService;
 
     private String toShippingAddressSummary(Address addr) {
         if (addr == null) return "—";
@@ -119,6 +125,29 @@ public class AdminOrdersController {
                 .map(this::mapOrder)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    }
+
+    /** PDF hóa đơn (admin). */
+    @GetMapping(value = "/{id}/invoice.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> getOrderInvoicePdf(@PathVariable Long id) {
+        return orderRepository.findById(id)
+                .map((Order order) -> {
+                    Address shipping = order.getShippingAddressId() != null
+                            ? addressRepository.findById(order.getShippingAddressId()).orElse(null)
+                            : null;
+                    try {
+                        byte[] pdf = invoicePdfService.buildInvoicePdf(order, shipping);
+                        String filename = "hoa-don-" + id + ".pdf";
+                        return ResponseEntity.ok()
+                                .contentType(MediaType.APPLICATION_PDF)
+                                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                                .body(pdf);
+                    } catch (IOException | DocumentException e) {
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).<byte[]>build();
+                    }
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/{id}/status-history")
