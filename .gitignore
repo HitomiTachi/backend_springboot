@@ -1,0 +1,20 @@
+# Local secrets — chỉ commit .env.example
+**/.env
+**/.env.local
+**/.env.*.local
+!**/.env.example
+
+# Maven build output
+**/target/
+
+# IDE
+.idea/
+*.iml
+
+# Local uploads / runtime data
+uploads/
+
+# Keys / certs
+*.pem
+*.p12
+*.jks

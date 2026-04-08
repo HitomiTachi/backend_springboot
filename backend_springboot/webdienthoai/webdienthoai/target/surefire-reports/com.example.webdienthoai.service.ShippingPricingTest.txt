@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.example.webdienthoai.service.ShippingPricingTest
--------------------------------------------------------------------------------
-Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.122 s -- in com.example.webdienthoai.service.ShippingPricingTest
